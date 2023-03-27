@@ -22,16 +22,13 @@
 
 
 #### Build this package
-    mkdir -p ~/drone_racing_ros2_ws/src
-    cd ~/drone_racing_ros2_ws/src
-    git clone https://github.com/TIERS/drone_racing_ros2.git
-    cd ..
+    git clone https://github.com/crcz25/aerial_multi_robot_project.git
+    cd aerial_multi_robot_project
     source /opt/ros/galactic/setup.bash
     colcon build
-    
-#### Run a teleop simulation
 
-    cd ~/drone_racing_ros2_ws
+#### Run a teleop simulation
+    cd PATH_TO_REPO
     source install/setup.bash
     export GAZEBO_MODEL_PATH=${PWD}/install/tello_gazebo/share/tello_gazebo/models
     source /usr/share/gazebo/setup.sh
@@ -44,14 +41,29 @@ If you run into the **No namespace found** error re-set `GAZEBO_MODEL_PATH`:
 
     export GAZEBO_MODEL_PATH=${PWD}/install/tello_gazebo/share/tello_gazebo/models
     source /usr/share/gazebo/setup.sh
-    
 
-#### Control the drone 
+#### Setup alias to import the environment
+Edit your .bashrc file and add the following line
+
+    alias drone="source PATH_TO_REPO/install/setup.bash && export GAZEBO_MODEL_PATH=PATH_TO_REPO/install/tello_gazebo/share/tello_gazebo/models:$GAZEBO_MODEL_PATH && source /usr/share/gazebo/setup.sh"
+
+#### Control the drone
     ros2 service call /drone1/tello_action tello_msgs/TelloAction "{cmd: 'takeoff'}"
     ros2 service call /drone1/tello_action tello_msgs/TelloAction "{cmd: 'land'}"
     ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r __ns:=/drone1
 
 
+## Kill gazebo processes
+In case gazebo fails launching and there are processes left, use the following script to kill all.
+
+    chmod +x kill_gazebo.sh
+    ./kill_gazebo.sh
+
+## Setup environment variables
+To easily setup the environment variables, run the following script
+
+    chmod +x setup_env.sh
+    . ./setup_env.sh
 
 
 
