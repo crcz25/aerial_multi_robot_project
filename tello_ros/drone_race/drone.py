@@ -66,4 +66,4 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
     def main_node(self):
         self.get_logger().info('Main node')
         # self.move()
-        self.plot()
+        # self.plot()
