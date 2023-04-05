@@ -138,23 +138,27 @@ class Mixin:
         if abs(error_normal_x) > 0.15:
             if unit_x > 0:
                 print("Move right")
-                self.move_right()
+                steps = float(abs(error_normal_x) * -self.speedx)
+                print(f"Steps X: {steps}")
+                self.move_right(steps)
             else:
                 print("Move left")
-                self.move_left()
-        else:
-            print("Centered in x")
-            self.stop()
-
-        if abs(error_normal_y) > 0.15:
+                steps = float(abs(error_normal_x) * self.speedx)
+                print(f"Steps X: {steps}")
+                self.move_left(steps)
+        elif abs(error_normal_y) > 0.15:
             if unit_y > 0:
                 print("Move down")
-                self.move_down()
+                steps = float(abs(error_normal_y) * -self.speedz)
+                print(f"Steps Y: {steps}")
+                self.move_down(steps)
             else:
                 print("Move up")
-                self.move_up()
+                steps = float(abs(error_normal_y) * self.speedz)
+                print(f"Steps Y: {steps}")
+                self.move_up(steps)
         else:
-            print("Centered in y")
+            print("Centered in (x,y)")
             self.stop()
         return
 

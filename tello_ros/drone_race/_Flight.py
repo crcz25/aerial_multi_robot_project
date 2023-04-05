@@ -1,4 +1,6 @@
 from std_msgs.msg import Empty
+from geometry_msgs.msg import Twist, Point, PoseStamped
+
 import numpy as np
 
 
@@ -46,17 +48,43 @@ class Mixin:
 
     def move_right(self, steps=0.1):
         self.get_logger().info('Moving right')
+        destination_twist = Twist()
+        destination_twist.linear.x = 0.0
+        destination_twist.linear.y = steps
+        destination_twist.linear.z = 0.0
+        self.publisher_twist = self.create_publisher(Twist, '/drone1/cmd_vel', 1)
+        self.publisher_twist.publish(destination_twist)
 
     def move_left(self, steps=0.1):
         self.get_logger().info('Moving left')
+        destination_twist = Twist()
+        destination_twist.linear.x = 0.0
+        destination_twist.linear.y = steps
+        destination_twist.linear.z = 0.0
+        self.publisher_twist.publish(destination_twist)
 
     def move_up(self, steps=0.1):
         self.get_logger().info('Moving up')
+        destination_twist = Twist()
+        destination_twist.linear.x = 0.0
+        destination_twist.linear.y = 0.0
+        destination_twist.linear.z = steps
+        self.publisher_twist.publish(destination_twist)
 
     def move_down(self, steps=0.1):
         self.get_logger().info('Moving down')
+        destination_twist = Twist()
+        destination_twist.linear.x = 0.0
+        destination_twist.linear.y = 0.0
+        destination_twist.linear.z = steps
+        self.publisher_twist.publish(destination_twist)
     
     def stop(self):
         self.get_logger().info('Stopping')
+        destination_twist = Twist()
+        destination_twist.linear.x = 0.0
+        destination_twist.linear.y = 0.0
+        destination_twist.linear.z = 0.0
+        self.publisher_twist.publish(destination_twist)
 
 
