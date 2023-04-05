@@ -37,3 +37,26 @@ class Mixin:
             self.trajectory_odom.append([msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z])
             self.theta_odom = np.arctan2(msg.twist.twist.linear.y - self.center.y,
                                          msg.twist.twist.linear.x - self.center.x)
+
+    def move_forward(self):
+        self.get_logger().info('Moving forward')
+
+    def move_backward(self):
+        self.get_logger().info('Moving backward')
+
+    def move_right(self, steps=0.1):
+        self.get_logger().info('Moving right')
+
+    def move_left(self, steps=0.1):
+        self.get_logger().info('Moving left')
+
+    def move_up(self, steps=0.1):
+        self.get_logger().info('Moving up')
+
+    def move_down(self, steps=0.1):
+        self.get_logger().info('Moving down')
+    
+    def stop(self):
+        self.get_logger().info('Stopping')
+
+
