@@ -117,28 +117,39 @@ class Mixin:
 
         # Calculate the direction of the movement
         direction = np.subtract(np.array([cx, cy]), np.array([cx_image, cy_image]))
+        unitary_direction = cv.normalize(direction, None, cv.NORM_L2)
         # Normalize the direction vector
         direction_unit = cv.normalize(direction, None, cv.NORM_L2)
-        # Get the unit vector components
-        unit_x = direction_unit[0]
-        unit_y = direction_unit[1]
-
+        # Calculate the angle of the direction vector
+        angle = np.arctan2(direction_unit[1], direction_unit[0])
+        print(f"Angle: {angle}")
+        # Since the robot is rotated 90 degrees in relation to the real world, rotate the direction vector
+        rotation = np.array([[np.cos(np.pi / 2), -np.sin(np.pi / 2)],
+                            [np.sin(np.pi / 2), np.cos(np.pi / 2)]])
+        # Rotate the direction vector
+        direction_unit = np.matmul(rotation, direction_unit)
+        print(f"Direction: {direction}")
+        # print(f"Rotation: {rotation}")
+        print(f"Direction unit: {direction_unit[0], direction_unit[1]}")
         # Calculate the error in the x and y directions
         error_x = cx - cx_image
         error_y = cy - cy_image
-        # Normalize the error between 0 and 1
+        # Calculate the error in the x and y directions normalized
         error_normal_x = error_x / cx_image
         error_normal_y = error_y / cy_image
+        # Calculate the unit vector in the x and y directions
+        unit_x = direction_unit[0]
+        unit_y = direction_unit[1]
+        print(f"Error X: {error_x}")
+        print(f"Error Y: {error_y}")
+        print(f"Error Normal X: {error_normal_x}")
+        print(f"Error Normal Y: {error_normal_y}")
 
-        print(f"Direction: {direction}, Direction Unit: {direction_unit[0][0], direction_unit[1][0]}")
-        print(f"Error x: {error_x}, Error y: {error_y}")
-        print(f"Error normal x: {error_normal_x}, Error normal y: {error_normal_y}")
-        
         # Check the unit vector to know the direction of the movement to center the gate in the image
-        if abs(error_normal_x) > 0.15:
+        if abs(error_normal_x) > 0.1:
             if unit_x > 0:
                 print("Move right")
-                steps = float(abs(error_normal_x) * -self.speedx)
+                steps = float(abs(error_normal_x) * self.speedx)
                 print(f"Steps X: {steps}")
                 self.move_right(steps)
             else:
@@ -146,10 +157,10 @@ class Mixin:
                 steps = float(abs(error_normal_x) * self.speedx)
                 print(f"Steps X: {steps}")
                 self.move_left(steps)
-        elif abs(error_normal_y) > 0.15:
+        elif abs(error_normal_y) > 0.1:
             if unit_y > 0:
                 print("Move down")
-                steps = float(abs(error_normal_y) * -self.speedz)
+                steps = float(abs(error_normal_y) * self.speedz)
                 print(f"Steps Y: {steps}")
                 self.move_down(steps)
             else:

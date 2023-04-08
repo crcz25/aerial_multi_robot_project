@@ -39,6 +39,9 @@ class Mixin:
             self.trajectory_odom.append([msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z])
             self.theta_odom = np.arctan2(msg.twist.twist.linear.y - self.center.y,
                                          msg.twist.twist.linear.x - self.center.x)
+        # Update the current position
+        self.current_position = msg.pose.pose.position
+        print('Current position: {}'.format(self.current_position))
 
     def move_forward(self):
         self.get_logger().info('Moving forward')

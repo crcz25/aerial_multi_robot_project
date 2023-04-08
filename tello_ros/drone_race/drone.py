@@ -24,6 +24,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         self.theta_odom = 0
         self.odometry = Odometry()
         self.center = Point(x=0.0, y=0.0)
+        self.curr_pos = Point(x=0.0, y=0.0)
         self.error = []
         # Set the environment (simulator or real)
         self.sim = sim
@@ -49,6 +50,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             # Set the speed
             self.speedx = 0.09
             self.speedy = 0.09
+            self.speedz = 0.09
         else:
             # Flight Control Real World
             self.publisher_twist = self.create_publisher(Twist, '/control', 1)
@@ -62,6 +64,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             # Set the speed
             self.speedx = 20
             self.speedy = 20
+            self.speedz = 20
 
     def main_node(self):
         self.get_logger().info('Main node')
