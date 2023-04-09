@@ -3,38 +3,56 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cv_bridge import CvBridgeError
 
+lower_range_green = (30, 50, 50)
+upper_range_green = (90, 255, 255)
+
+lower_range_red_1 = (0, 50, 50)
+upper_range_red_1 = (10, 255, 255)
+
+lower_range_red_2 = (170, 50, 50)
+upper_range_red_2 = (180, 255, 255)
+
+detector = cv.CascadeClassifier('haarcascade_stop.xml')
 
 class Mixin:
-    def show_image(self, title, image):
+    def show_image(self, title, image, resize=False, width=640, height=480):
+        # Resize the image
+        if resize:
+            image = cv.resize(image, (width, height))
         cv.imshow(title, image)
         cv.waitKey(1)
 
-    def background_foreground_separator(self, image):
+    def background_foreground_separator(self, image, lower_range, upper_range):
+        # Create a copy of the image
+        image = image.copy()
         # image = cv.fastNlMeansDenoisingColored(image, None, 10, 10, 7, 21)
         # Convert the image to HSV
         image = cv.cvtColor(image, cv.COLOR_BGR2HSV)
-        # Define the upper and lower boundaries of the green color in the HSV color space
-        lower_range = (30, 50, 50)
-        upper_range = (90, 255, 255)
         # Generate the mask
         mask = cv.inRange(image, lower_range, upper_range)
         # Apply morphological operations to remove noise and fill gaps
         kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
-        mask = cv.erode(mask, kernel, iterations=2)
-        mask = cv.dilate(mask, kernel, iterations=2)
+        mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel, iterations=2)
+        mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel, iterations=2)
+        # mask = cv.erode(mask, kernel, iterations=2)
+        # mask = cv.dilate(mask, kernel, iterations=2)
         # Extract the objects from the image
         image = cv.bitwise_and(image, image, mask=mask)
         # Convert the image to grayscale
         image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        # Equalize the histogram of the image
+        image = cv.equalizeHist(image)
         # Blur the image to reduce noise
         image = cv.GaussianBlur(image, (5, 5), 0)
         # Apply Adaptive Thresholding
-        # image = cv.adaptiveThreshold(image, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 11, 2)
+        # image = cv.adaptiveThreshold(image, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 11, 2)
         # Apply Otsu's thresholding
         _, image = cv.threshold(image, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
         return image
 
     def gate_detector(self, image):
+        # Create a copy of the image
+        image = image.copy()
         # If the image is not in grayscale, convert it
         if len(image.shape) == 3:
             image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
@@ -77,6 +95,8 @@ class Mixin:
         return image
 
     def generate_grid(self, image):
+        # Create a copy of the image
+        image = image.copy()
         # If the image is not in RGB, convert it
         if len(image.shape) != 3:
             image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
@@ -102,7 +122,6 @@ class Mixin:
         return image
 
     def center_gate(self):
-        print("Checking movement")
         if len(self.gates) == 0:
             return
         # Get the first gate
@@ -173,20 +192,47 @@ class Mixin:
             self.stop()
         return
 
+    def stop_sign_detector(self, image):
+        print("Checking stop sign")
+        image = image.copy()
+        rects = detector.detectMultiScale(image, scaleFactor=1.3, minNeighbors=10, minSize=(75, 75))
+        for (x, y, w, h) in rects:
+            cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                # Reconvert the image to display the contours with color
+        return image
+
     def image_sub_callback(self, data):
         # print("Image received")
         try:
             # Convert your ROS Image message to OpenCV2
             self.image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            # Separate the background from the foreground
-            self.image = self.background_foreground_separator(self.image)
-            # self.show_image("Drone Image post processing", self.image)
+
+            # Separate the stop sign from the background
+            # lower red
+            image_stop_sign_1 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_1)
+            # upper red
+            image_stop_sign_2 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_2)
+            # Combine the two images
+            image_stop_sign = cv.add(image_stop_sign_1, image_stop_sign_2)
+
+            # Separate the gates from the background
+            image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
+
             # Find the gates in the image
-            self.image = self.gate_detector(self.image)
-            # self.show_image("Drone Image post gate detection", self.image)
-            # Generate the grid
-            self.image = self.generate_grid(self.image)
-            self.show_image("Drone Image post grid generation", self.image)
+            gates = self.gate_detector(image_gates)
+            # Find the stop sign in the image
+            stop_sign = self.stop_sign_detector(self.image)
+
+            # Generate the grid over the image
+            image_grid = self.generate_grid(self.image)
+
+            # Conatenate the images for display in a single image containing 4 images in 2 rows and 2 columns
+            image_top = np.concatenate((gates, stop_sign), axis=1)
+            image_bottom = np.concatenate((self.image, image_grid), axis=1)
+            image = np.concatenate((image_top, image_bottom), axis=0)
+            # Show the image
+            self.show_image("Drone Image post detection", image, resize=True, width=960, height=720)
+
             # Check the movement of the drone to center the gate in the image
             self.center_gate()
         except CvBridgeError as e:
