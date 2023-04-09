@@ -208,12 +208,12 @@ class Mixin:
             self.image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 
             # Separate the stop sign from the background
-            # lower red
-            image_stop_sign_1 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_1)
-            # upper red
-            image_stop_sign_2 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_2)
-            # Combine the two images
-            image_stop_sign = cv.add(image_stop_sign_1, image_stop_sign_2)
+            # # lower red
+            # image_stop_sign_1 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_1)
+            # # upper red
+            # image_stop_sign_2 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_2)
+            # # Combine the two images
+            # image_stop_sign = cv.add(image_stop_sign_1, image_stop_sign_2)
 
             # Separate the gates from the background
             image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
