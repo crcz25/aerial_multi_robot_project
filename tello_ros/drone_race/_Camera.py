@@ -66,6 +66,8 @@ class Mixin:
             aspect_ratio = float(w) / h
             # Calculate the area of the bounding box
             area = w * h
+            # Normalize the area of the bounding box
+            area = area / (image.shape[0] * image.shape[1])
             # If the aspect ratio is between 0.75 and 1.0, then the contour is a gate
             if 0.75 < aspect_ratio < 2.0:
                 # Calculate the center of the gate
@@ -73,13 +75,17 @@ class Mixin:
                 cy = y + h // 2
                 # Add the gate to the list of gates
                 self.gates.append((x, y, w, h, cx, cy, area))
+                # Draw the bounding box around the gate
+                cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                # Draw the center of the gate
+                cv.circle(image, (cx, cy), 10, (0, 255, 0), -1)
         # Sort the gates based on the area of the bounding box
         self.gates = sorted(self.gates, key=lambda x: x[6], reverse=True)
         # Draw the gates on the image
-        for gate in self.gates:
-            x, y, w, h, cx, cy, _ = gate
-            cv.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 3)
-            cv.circle(image, (cx, cy), 10, (255, 0, 0), -1)
+        # for gate in self.gates:
+            # x, y, w, h, cx, cy, _ = gate
+            # cv.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 3)
+            # cv.circle(image, (cx, cy), 10, (255, 0, 0), -1)
         return image
 
     def generate_grid(self, image):
@@ -103,80 +109,50 @@ class Mixin:
         cv.circle(image, (cols // 2, rows // 2), 10, (0, 0, 255), -1)
 
         # Draw a line from the center of the image to the center of the gate
-        if len(self.gates) > 0:
+        if len(self.gates) > 0 and len(self.stop_signs) > 0:
+            # Draw a line from the center of the image to the center of the gate
             first_gate = self.gates[0]
             x, y, w, h, cx, cy, _ = first_gate
             cv.line(image, (cx, cy), (cols // 2, rows // 2), (0, 0, 255), 5)
+            # Draw a line from the center of the image to the center of the stop sign
+            stop_sign = self.stop_signs[0]
+            x, y, w, h, cx, cy, _ = stop_sign
+            cv.line(image, (cx, cy), (cols // 2, rows // 2), (0, 0, 255), 5)
         return image
 
-    def center_gate(self):
-        if len(self.gates) == 0:
-            print("No gates found")
-            return
-        # Get the first gate
-        first_gate = self.gates[0]
-        # Get the center of the gate
-        cx = first_gate[4]
-        cy = first_gate[5]
-        # Get the center of the image
-        rows, cols, _ = self.image.shape
-        cx_image = cols // 2
-        cy_image = rows // 2
-
-        # Calculate the direction of the movement
-        direction = np.subtract(np.array([cx, cy]), np.array([cx_image, cy_image]))
-        # Normalize the direction vector
-        direction_unit = cv.normalize(direction, None, cv.NORM_L2)
-        # Calculate the angle of the direction vector
-        angle = np.arctan2(direction_unit[1], direction_unit[0])
-        print(f"Angle: {angle}")
-        print(f"Direction: {direction}")
-        print(f"Direction unit: {direction_unit[0], direction_unit[1]}")
-        # Calculate the error in the x and y directions
-        error_x = cx - cx_image
-        error_y = cy - cy_image
-        # Calculate the error in the x and y directions normalized
-        error_normal_x = error_x / cx_image
-        error_normal_y = error_y / cy_image
-        # Calculate the unit vector in the x and y directions
-        unit_x = direction_unit[0]
-        unit_y = direction_unit[1]
-        print(f"Error X: {error_x}")
-        print(f"Error Y: {error_y}")
-        print(f"Error Normal X: {error_normal_x}")
-        print(f"Error Normal Y: {error_normal_y}")
-
-        # Check the unit vector to know the direction of the movement to center the gate in the image
-        if abs(error_normal_x) > 0.1:
-            if unit_x > 0:
-                print("Move right")
-                steps = abs(error_normal_x) * self.speedx
-                self.move_y(-steps)
-            else:
-                print("Move left")
-                steps = abs(error_normal_x) * self.speedx
-                self.move_y(steps)
-        elif abs(error_normal_y) > 0.1:
-            if unit_y > 0:
-                print("Move down")
-                steps = abs(error_normal_y) * self.speedz
-                self.move_z(-steps)
-            else:
-                print("Move up")
-                steps = abs(error_normal_y) * self.speedz
-                self.move_z(steps)
-        else:
-            print("Centered in (x,y)")
-            self.stop()
-        return
-
-    def stop_sign_detector(self, image):
-        print("Checking stop sign")
+    def stop_sign_detector(self, image, method = cv.RETR_TREE):
+        # print("Checking stop sign")
         image = image.copy()
-        rects = self.detector.detectMultiScale(image, scaleFactor=1.3, minNeighbors=10, minSize=(75, 75))
-        for (x, y, w, h) in rects:
+        # If the image is not in grayscale, convert it
+        if len(image.shape) == 3:
+            image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        # Detect the stop signs
+        # detection = self.detector.detectMultiScale(image, scaleFactor=1.5, minNeighbors=10, minSize=(50, 50))
+        # Calculate the contours of the image 
+        contours, hierarchies = cv.findContours(image, method, cv.CHAIN_APPROX_SIMPLE)
+        # Reconvert the image to display the contours with color
+        if len(image.shape) != 3:
+            image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
+        # Draw the bounding boxes around the stop signs
+        self.stop_signs = []
+        for cnt in contours:
+            # Create a bounding box around the contour
+            x, y, w, h = cv.boundingRect(cnt)
+            # Calculate the area of the bounding box
+            area = w * h
+            # Normalize the area of the bounding box
+            area = area / (image.shape[0] * image.shape[1])
+            # Calculate the center of the stop sign
+            cx = x + w // 2
+            cy = y + h // 2
+            # Add the stop sign to the list of stop signs
+            self.stop_signs.append((x, y, w, h, cx, cy, area))
+            # Draw the bounding box
             cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                # Reconvert the image to display the contours with color
+            # Draw the center of the stop sign
+            cv.circle(image, (cx, cy), 10, (0, 255, 0), -1)
+        # Sort the stop signs based on the area of the bounding box
+        self.stop_signs = sorted(self.stop_signs, key=lambda x: x[6], reverse=True)
         return image
 
     def image_sub_callback(self, data):
