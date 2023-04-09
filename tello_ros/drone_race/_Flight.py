@@ -41,7 +41,11 @@ class Mixin:
                                          msg.twist.twist.linear.x - self.center.x)
         # Update the current position
         self.current_position = msg.pose.pose.position
-        print('Current position: {}'.format(self.current_position))
+        self.current_orientation = msg.pose.pose.orientation
+        # print('Current position: {:.2f}, {:.2f}, {:.2f}'.format(self.current_position.x, self.current_position.y, self.current_position.z))
+        # print('Current orientation: {:.2f} {:.2f} {:.2f} {:.2f}'.format(self.current_orientation.x, self.current_orientation.y, self.current_orientation.z, self.current_orientation.w))
+        # print('Current theta: {:.2f}'.format(self.theta_odom))
+
 
     def move_forward(self):
         self.get_logger().info('Moving forward')
@@ -49,45 +53,48 @@ class Mixin:
     def move_backward(self):
         self.get_logger().info('Moving backward')
 
-    def move_right(self, steps=0.1):
-        self.get_logger().info('Moving right')
+    def move_x(self, steps=0.1):
+        self.get_logger().info('Moving X')
         destination_twist = Twist()
-        destination_twist.linear.x = 0.0
-        destination_twist.linear.y = steps
+        destination_twist.linear.x = float(steps)
+        destination_twist.linear.y = 0.0
         destination_twist.linear.z = 0.0
-        self.publisher_twist = self.create_publisher(Twist, '/drone1/cmd_vel', 1)
+        destination_twist.angular.z = 0.0
         self.publisher_twist.publish(destination_twist)
 
-    def move_left(self, steps=0.1):
-        self.get_logger().info('Moving left')
+    def move_y(self, steps=0.1):
+        self.get_logger().info('Moving Y')
         destination_twist = Twist()
         destination_twist.linear.x = 0.0
-        destination_twist.linear.y = steps
+        destination_twist.linear.y = float(steps)
         destination_twist.linear.z = 0.0
+        destination_twist.angular.z = 0.0
         self.publisher_twist.publish(destination_twist)
 
-    def move_up(self, steps=0.1):
-        self.get_logger().info('Moving up')
+    def move_z(self, steps=0.1):
+        self.get_logger().info('Moving Z')
         destination_twist = Twist()
         destination_twist.linear.x = 0.0
         destination_twist.linear.y = 0.0
-        destination_twist.linear.z = steps
+        destination_twist.linear.z = float(steps)
+        destination_twist.angular.z = 0.0
         self.publisher_twist.publish(destination_twist)
 
-    def move_down(self, steps=0.1):
-        self.get_logger().info('Moving down')
+    def rotate(self, steps=0.1):
+        self.get_logger().info('Rotating')
         destination_twist = Twist()
         destination_twist.linear.x = 0.0
         destination_twist.linear.y = 0.0
-        destination_twist.linear.z = steps
+        destination_twist.linear.z = 0.0
+        destination_twist.angular.z = float(steps)
         self.publisher_twist.publish(destination_twist)
-    
+
     def stop(self):
         self.get_logger().info('Stopping')
         destination_twist = Twist()
         destination_twist.linear.x = 0.0
         destination_twist.linear.y = 0.0
         destination_twist.linear.z = 0.0
+        destination_twist.angular.z = 0.0
         self.publisher_twist.publish(destination_twist)
-
 

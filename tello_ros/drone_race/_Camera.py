@@ -1,18 +1,6 @@
 import cv2 as cv
 import numpy as np
-import matplotlib.pyplot as plt
 from cv_bridge import CvBridgeError
-
-lower_range_green = (30, 50, 50)
-upper_range_green = (90, 255, 255)
-
-lower_range_red_1 = (0, 50, 50)
-upper_range_red_1 = (10, 255, 255)
-
-lower_range_red_2 = (170, 50, 50)
-upper_range_red_2 = (180, 255, 255)
-
-detector = cv.CascadeClassifier('haarcascade_stop.xml')
 
 class Mixin:
     def show_image(self, title, image, resize=False, width=640, height=480):
@@ -123,6 +111,7 @@ class Mixin:
 
     def center_gate(self):
         if len(self.gates) == 0:
+            print("No gates found")
             return
         # Get the first gate
         first_gate = self.gates[0]
@@ -136,19 +125,12 @@ class Mixin:
 
         # Calculate the direction of the movement
         direction = np.subtract(np.array([cx, cy]), np.array([cx_image, cy_image]))
-        unitary_direction = cv.normalize(direction, None, cv.NORM_L2)
         # Normalize the direction vector
         direction_unit = cv.normalize(direction, None, cv.NORM_L2)
         # Calculate the angle of the direction vector
         angle = np.arctan2(direction_unit[1], direction_unit[0])
         print(f"Angle: {angle}")
-        # Since the robot is rotated 90 degrees in relation to the real world, rotate the direction vector
-        rotation = np.array([[np.cos(np.pi / 2), -np.sin(np.pi / 2)],
-                            [np.sin(np.pi / 2), np.cos(np.pi / 2)]])
-        # Rotate the direction vector
-        direction_unit = np.matmul(rotation, direction_unit)
         print(f"Direction: {direction}")
-        # print(f"Rotation: {rotation}")
         print(f"Direction unit: {direction_unit[0], direction_unit[1]}")
         # Calculate the error in the x and y directions
         error_x = cx - cx_image
@@ -168,25 +150,21 @@ class Mixin:
         if abs(error_normal_x) > 0.1:
             if unit_x > 0:
                 print("Move right")
-                steps = float(abs(error_normal_x) * self.speedx)
-                print(f"Steps X: {steps}")
-                self.move_right(steps)
+                steps = abs(error_normal_x) * self.speedx
+                self.move_y(-steps)
             else:
                 print("Move left")
-                steps = float(abs(error_normal_x) * self.speedx)
-                print(f"Steps X: {steps}")
-                self.move_left(steps)
+                steps = abs(error_normal_x) * self.speedx
+                self.move_y(steps)
         elif abs(error_normal_y) > 0.1:
             if unit_y > 0:
                 print("Move down")
-                steps = float(abs(error_normal_y) * self.speedz)
-                print(f"Steps Y: {steps}")
-                self.move_down(steps)
+                steps = abs(error_normal_y) * self.speedz
+                self.move_z(-steps)
             else:
                 print("Move up")
-                steps = float(abs(error_normal_y) * self.speedz)
-                print(f"Steps Y: {steps}")
-                self.move_up(steps)
+                steps = abs(error_normal_y) * self.speedz
+                self.move_z(steps)
         else:
             print("Centered in (x,y)")
             self.stop()
@@ -195,7 +173,7 @@ class Mixin:
     def stop_sign_detector(self, image):
         print("Checking stop sign")
         image = image.copy()
-        rects = detector.detectMultiScale(image, scaleFactor=1.3, minNeighbors=10, minSize=(75, 75))
+        rects = self.detector.detectMultiScale(image, scaleFactor=1.3, minNeighbors=10, minSize=(75, 75))
         for (x, y, w, h) in rects:
             cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 # Reconvert the image to display the contours with color
@@ -206,34 +184,5 @@ class Mixin:
         try:
             # Convert your ROS Image message to OpenCV2
             self.image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-
-            # Separate the stop sign from the background
-            # # lower red
-            # image_stop_sign_1 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_1)
-            # # upper red
-            # image_stop_sign_2 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_2)
-            # # Combine the two images
-            # image_stop_sign = cv.add(image_stop_sign_1, image_stop_sign_2)
-
-            # Separate the gates from the background
-            image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
-
-            # Find the gates in the image
-            gates = self.gate_detector(image_gates)
-            # Find the stop sign in the image
-            stop_sign = self.stop_sign_detector(self.image)
-
-            # Generate the grid over the image
-            image_grid = self.generate_grid(self.image)
-
-            # Conatenate the images for display in a single image containing 4 images in 2 rows and 2 columns
-            image_top = np.concatenate((gates, stop_sign), axis=1)
-            image_bottom = np.concatenate((self.image, image_grid), axis=1)
-            image = np.concatenate((image_top, image_bottom), axis=0)
-            # Show the image
-            self.show_image("Drone Image post detection", image, resize=True, width=960, height=720)
-
-            # Check the movement of the drone to center the gate in the image
-            self.center_gate()
         except CvBridgeError as e:
             print(e)

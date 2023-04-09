@@ -11,6 +11,10 @@ import _Camera as _Camera
 import _Flight as _Flight
 import _Utils as _Utils
 
+import cv2 as cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
 
 class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
     def __init__(self, sim=False):
@@ -19,17 +23,23 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST, depth=1)
         # Create the bridge between ROS and OpenCV
         self.bridge = CvBridge()
+        self.image = None
         # Internal Odometry Variables
         self.trajectory_odom = []
         self.theta_odom = 0
         self.odometry = Odometry()
-        self.center = Point(x=0.0, y=0.0)
-        self.curr_pos = Point(x=0.0, y=0.0)
+        self.center = Point(x=0.0, y=0.0, z=0.0)
+        self.curr_pos = Point(x=0.0, y=0.0, z=0.0)
+        self.calculated_pos = Point(x=0.0, y=0.0, z=0.0)
+        self.curr_angle = 0
         self.error = []
         # Set the environment (simulator or real)
         self.sim = sim
         # Execute the main node
-        self.create_timer(0.2, self.main_node)
+        self.create_timer(0.1, self.main_node)
+
+        # Track processing
+        self.detector = cv2.CascadeClassifier('haarcascade_stop.xml')
 
         # Set the variables according to the environment (simulator or real)
         if self.sim:
@@ -66,7 +76,36 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.speedy = 20
             self.speedz = 20
 
+    def track_processing(self):
+        lower_range_green = (30, 50, 50)
+        upper_range_green = (90, 255, 255)
+
+        # Separate the gates from the background
+        image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
+
+        # Find the gates in the image
+        gates = self.gate_detector(image_gates)
+        # Find the stop sign in the image
+        stop_sign = self.stop_sign_detector(self.image)
+
+        # Generate the grid over the image
+        image_grid = self.generate_grid(self.image)
+
+        # Conatenate the images for display in a single image containing 4 images in 2 rows and 2 columns
+        image_top = np.concatenate((gates, stop_sign), axis=1)
+        image_bottom = np.concatenate((self.image, image_grid), axis=1)
+        image = np.concatenate((image_top, image_bottom), axis=0)
+        # Show the image
+        self.show_image("Drone Image post detection", image, resize=True, width=960, height=720)
+
+        # Check the movement of the drone to center the gate in the image
+        self.center_gate()
+
     def main_node(self):
         self.get_logger().info('Main node')
-        # self.move()
+        # Check if the image is not empty
+        if self.image is not None:
+            # Process the image
+            self.track_processing()
+
         # self.plot()
