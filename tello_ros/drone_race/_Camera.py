@@ -29,7 +29,7 @@ class Mixin:
         # Convert the image to grayscale
         image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         # Equalize the histogram of the image
-        image = cv.equalizeHist(image)
+        # image = cv.equalizeHist(image)
         # Blur the image to reduce noise
         image = cv.GaussianBlur(image, (5, 5), 0)
         # Apply Adaptive Thresholding
