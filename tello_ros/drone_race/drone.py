@@ -114,14 +114,6 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
 
 
     def center_object(self, cx, cy):
-        if len(self.gates) == 0:
-            print("No gates found")
-            return
-        # Get the first gate
-        # first_gate = self.gates[0]
-        # Get the center of the gate
-        # cx = first_gate[4]
-        # cy = first_gate[5]
         self.centered = False
         # Get the center of the image
         rows, cols, _ = self.image.shape
@@ -134,9 +126,9 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         direction_unit = cv2.normalize(direction, None, cv2.NORM_L2)
         # Calculate the angle of the direction vector
         angle = np.arctan2(direction_unit[1], direction_unit[0])
-        print(f"Angle: {angle}")
-        print(f"Direction: {direction}")
-        print(f"Direction unit: {direction_unit[0], direction_unit[1]}")
+        # print(f"Angle: {angle}")
+        # print(f"Direction: {direction}")
+        # print(f"Direction unit: {direction_unit[0], direction_unit[1]}")
         # Calculate the error in the x and y directions
         error_x = cx - cx_image
         error_y = cy - cy_image
@@ -173,9 +165,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         else:
             print("Centered in (x,y), approach the gate")
             self.centered = True
-            self.approach_gate()
-            # self.move_x(self.speedx * 0.5)
-
+            self.stop()
         return
 
     def approach_gate(self):
@@ -185,16 +175,13 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             return
         # Get the first gate
         x, y, w, h, cx, cy, area =  self.gates[0]
-        if area < 0.75 and not self.centered:
-            print(f"Area of gate infront: {area}")
+        if not self.centered:
             self.center_object(cx, cy)
-        else:
+        elif area < 0.75:
+            print("Approaching the gate")
             self.move_x(self.speedx * 0.5)
-            self.centered = False
-            # print("LELELELELELE")
-            # Schedule the stop command to be executed after 5 seconds
-            # self.create_timer(5.0, self.stop)
-        # self.stop()
+        else:
+            self.stop()
         return
 
     def stop_drone(self):
@@ -204,9 +191,12 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         # Get the first stop sign
         x, y, w, h, cx, cy, area =  self.stop_signs[0]
         # Center the stop sign in the image
-        if area > 0.20 and not self.centered:
-            print(f"Area of stop sign infront: {area}")
+        if not self.centered:
             self.center_object(cx, cy)
+        elif area < 0.2:
+            print("Approaching the stop sign")
+            self.move_x(self.speedx * 0.5)
+        else:
             self.stop()
             if self.sim:
                 self.send_request_simulator('land')
@@ -220,19 +210,20 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         # Check if the image is not empty
         if self.image is not None:
             # Show the image
-            self.show_image("Drone Image", self.image, resize=True, width=960, height=720)
+            # self.show_image("Drone Image", self.image, resize=True, width=960, height=720)
             # Process the image
             self.track_processing()
             # # If the area of the gate is bigger it means that the drone is close to the gate than the stop sign. Call the function approach_gate to move forward to the gate
-            if len(self.gates) > 0 and len(self.stop_signs) > 0 and self.gates[0][6] > self.stop_signs[0][6]:
+            if len(self.gates) > 0 and len(self.stop_signs) > 0 and (self.gates[0][6] > self.stop_signs[0][6]):
                 print("Approach gate")
                 print(f"Area of gate infront: {self.gates[0][6]}")
                 print(f"Area of stop sign infront: {self.stop_signs[0][6]}")
                 self.approach_gate()
-            else:
-            #     # If the area of the stop sign is bigger it means that the drone is close to the stop sign than the gate. Call the function stop_drone to stop the drone
-                print("Stop drone")
+            elif len(self.stop_signs) > 0: # and len(self.gates) > 0 and (self.stop_signs[0][6] > self.gates[0][6]):
+                print("Approach stop sign")
+                # print(f"Area of gate infront: {self.gates[0][6]}")
+                # print(f"Area of stop sign infront: {self.stop_signs[0][6]}")
                 self.stop_drone()
-
-
-        # self.plot()
+            else:
+                print('No gates or stop signs found')
+                self.stop_drone()
