@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<robot name="wgate_square${suffix}">
+
+  <material name="white">
+      <color rgba="1.0 0 0 1.0"/>
+  </material>
+  
+  <link name="link${suffix}">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://tello_ros/tello_gazebo/models/square_gate_red/square_gate.dae"/>
+      </geometry>
+      <material name="red"/>
+    </visual>
+    <inertial>
+        <mass value="0.1"/>
+        <!-- Tensor for solid cuboid 18cm x 18cm x 5cm high -->
+        <inertia ixx="0.000290833" ixy="0" ixz="0" iyy="0.00054" iyz="0" izz="0.000290833"/>
+    </inertial>
+    <collision>
+      <geometry>
+        <mesh filename="file://tello_ros/tello_gazebo/models/square_gate_red/square_gate.dae"/>
+      </geometry>
+      <origin xyz="0 0 -0.01" rpy="0 0 0"/>
+    </collision>
+  </link>
+
+  <gazebo reference="link${suffix}">
+    <material>Gazebo/White</material>
+  </gazebo>
+
+</robot>
