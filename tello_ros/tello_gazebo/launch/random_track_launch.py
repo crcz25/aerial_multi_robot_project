@@ -10,12 +10,25 @@ from launch.actions import ExecuteProcess
 
 
 def generate_launch_description():
-     world_path = os.path.join(get_package_share_directory('tello_gazebo'), 'worlds', 'demo_track.world')
+     world_path = os.path.join(get_package_share_directory('tello_gazebo'), 'worlds', 'simple.world')
 
      ns = 'drone1'
      urdf_path = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'tello_1.urdf')
 
      gates_nodes = create_gates_random()
+
+     stop_sdf_path = os.path.join(
+          get_package_share_directory('tello_gazebo'),
+          'models',
+          'stop_sign',
+          'model.sdf'
+     )
+     pallet_sdf_path = os.path.join(
+          get_package_share_directory('tello_gazebo'),
+          'models',
+          'euro_pallet',
+          'model.sdf'
+     )
 
      return LaunchDescription([
           # Launch Gazebo, loading tello.world
@@ -27,8 +40,30 @@ def generate_launch_description():
                     world_path],
                output='screen'
           ),
-          # Add the gates spawn entity list
+          
+          # Add the gates - spawn entity list
           *gates_nodes,
+
+          # Add the landing platform (stop and pallet)
+          Node(
+               package='tello_gazebo',
+               executable='inject_entity.py',
+               output='screen',
+               arguments=[pallet_sdf_path, '-0.4', '22', '1', '0.01', 'pallet_1']
+          ),
+          Node(
+               package='tello_gazebo',
+               executable='inject_entity.py',
+               output='screen',
+               arguments=[pallet_sdf_path, '0.41', '22', '1', '0.01',  'pallet_2']
+          ),
+          Node(
+               package='tello_gazebo',
+               executable='inject_entity.py',
+               output='screen',
+               arguments=[stop_sdf_path, '0', '22.8', '0', '0.01', 'stop_1']
+          ),
+          
           # Spawn tello.urdf
           Node(
                package='tello_gazebo',
@@ -59,55 +94,39 @@ def generate_launch_description():
           ),
      ])
 
-def create_gates_random(
-          total_gates=3,
-          exclusive_color=None,
-):
-     colors = ['r', 'g']
+def create_gates_random():
+     colors = ['red', 'green', 'blue']
+     shapes = ['circle', 'square']
      gates_nodes = []
 
-     if not exclusive_color:
-          for gate in range(1, total_gates+1):
-               color = random.choice(colors)
-               if color == 'r':
-                    urdf_rgate_path = os.path.join(
-                         get_package_share_directory('tello_description'),
-                         'urdf',
-                         f'rgate_{gate}.urdf'
-                    )
+     gates_locations = [
+          # X, Y, Z, Theta
+          ['0.45', '3', '1', '0.01'],
+          ['-0.45', '6', '1', '0.01'],
+          ['0.45', '9', '1', '0.01'],
+          ['0.45', '12', '1', '0.01'],
+          ['-0.45', '15', '1', '0.01'],
+          ['0.45', '18', '1', '0.01'],
+     ]
 
-                    new_node = Node(
-                         package='tello_gazebo',
-                         executable='inject_entity.py',
-                         output='screen',
-                         arguments=[urdf_rgate_path, '5', '0', '1', '1.57079632679']
-                    )
-               elif color == 'g':
-                    urdf_ggate_path = os.path.join(
-                         get_package_share_directory('tello_description'),
-                         'urdf',
-                         f'ggate_{gate}.urdf'
-                    )
-
-                    new_node = Node(
-                         package='tello_gazebo',
-                         executable='inject_entity.py',
-                         output='screen',
-                         arguments=[urdf_ggate_path, '5', '5', '1', '1.57079632679']
-                    )
-               elif color == 'b':
-                    urdf_bgate_path = os.path.join(
-                         get_package_share_directory('tello_description'),
-                         'urdf',
-                         f'bgate_{gate}.urdf'
-                    )
-
-                    new_node = Node(
-                         package='tello_gazebo',
-                         executable='inject_entity.py',
-                         output='screen',
-                         arguments=[urdf_bgate_path, '10', '5', '1', '1.57079632679']
-                    )
-               gates_nodes.append(new_node)
+     for gate_n, location in enumerate(gates_locations):
+          color = random.choice(colors)
+          shape = random.choice(shapes)
+          model_color_folder = f'{shape}_gate_{color}'
+          
+          urdf_gate_path = os.path.join(
+               get_package_share_directory('tello_gazebo'),
+               'models',
+               model_color_folder,
+               'model.sdf'
+          )
+     
+          new_node = Node(
+                    package='tello_gazebo',
+                    executable='inject_entity.py',
+                    output='screen',
+                    arguments=[urdf_gate_path, *location, f'gate_{gate_n}']
+               )
+          gates_nodes.append(new_node)
 
      return gates_nodes
