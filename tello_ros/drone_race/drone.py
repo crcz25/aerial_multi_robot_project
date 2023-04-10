@@ -37,13 +37,14 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         self.sim = sim
         # Execute the main node
         self.create_timer(0.1, self.main_node)
-        self.moving = False
 
         # Track processing
         self.detector = cv2.CascadeClassifier('haarcascade_stop.xml')
         self.stop_signs = []
         self.gates = []
         self.centered = False
+        self.close_enough = False
+        self.moving = False
 
         # Set the variables according to the environment (simulator or real)
         if self.sim:
@@ -89,7 +90,10 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         lower_range_red_2 = (160, 25, 25)
         upper_range_red_2 = (180, 255, 255)
 
-        # Separate the gates from the background
+        # Separate green the gates from the background
+        image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
+
+        # Separate red the gates from the background
         image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
 
         # Find the gates in the image
@@ -114,7 +118,6 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
 
 
     def center_object(self, cx, cy):
-        self.centered = False
         # Get the center of the image
         rows, cols, _ = self.image.shape
         cx_image = cols // 2
@@ -168,41 +171,36 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.stop()
         return
 
-    def approach_gate(self):
-        # Now that the drone is centered, move forward to the gate until the drone is 1 meter away from the gate
-        if len(self.gates) == 0:
-            print("No gates found")
-            return
-        # Get the first gate
-        x, y, w, h, cx, cy, area =  self.gates[0]
-        if not self.centered:
-            self.center_object(cx, cy)
-        elif area < 0.75:
-            print("Approaching the gate")
-            self.move_x(self.speedx * 0.5)
-        else:
+    def approach_gate(self, area):
+        if area > 0.40:
+            self.close_enough = True
             self.stop()
+        else:
+            self.move_x(self.speedx * 0.5)
         return
 
-    def stop_drone(self):
-        if len(self.stop_signs) == 0:
-            print("No stop signs found")
-            return
-        # Get the first stop sign
-        x, y, w, h, cx, cy, area =  self.stop_signs[0]
-        # Center the stop sign in the image
-        if not self.centered:
-            self.center_object(cx, cy)
-        elif area < 0.2:
-            print("Approaching the stop sign")
+    def stop_drone(self, area):
+        if area < 0.2:
+            self.moving = True
             self.move_x(self.speedx * 0.5)
         else:
+            self.moving = False
+            self.centered = False
             self.stop()
             if self.sim:
                 self.send_request_simulator('land')
             else:
                 self.land()
             exit()
+        return
+
+    def pass_gate(self):
+        print("MOOVINGGGG")
+        self.moving = True
+        self.move_x(self.speedx * 0.4)
+        # self.create_timer(5.0, self.stop)
+        rclpy.spin_once(self, timeout_sec=5.0)
+        self.stop()
         return
 
     def main_node(self):
@@ -213,17 +211,27 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             # self.show_image("Drone Image", self.image, resize=True, width=960, height=720)
             # Process the image
             self.track_processing()
-            # # If the area of the gate is bigger it means that the drone is close to the gate than the stop sign. Call the function approach_gate to move forward to the gate
-            if len(self.gates) > 0 and len(self.stop_signs) > 0 and (self.gates[0][6] > self.stop_signs[0][6]):
-                print("Approach gate")
-                print(f"Area of gate infront: {self.gates[0][6]}")
-                print(f"Area of stop sign infront: {self.stop_signs[0][6]}")
-                self.approach_gate()
-            elif len(self.stop_signs) > 0: # and len(self.gates) > 0 and (self.stop_signs[0][6] > self.gates[0][6]):
-                print("Approach stop sign")
-                # print(f"Area of gate infront: {self.gates[0][6]}")
-                # print(f"Area of stop sign infront: {self.stop_signs[0][6]}")
-                self.stop_drone()
+            # If the area of the gate is bigger it means that the drone is close to the gate than the stop sign. Call the function approach_gate to move forward to the gate
+            if len(self.gates) > 0:
+                print("Gate Detected")
+                cx, cy, radius, area =  self.gates[0]
+                print(f"Area: {area}")
+                if not self.centered:
+                    print("Centering the gate")
+                    self.center_object(cx, cy)
+                elif not self.close_enough:
+                    print("Approaching the gate")
+                    self.approach_gate(area)
+                elif not self.moving:
+                    print("Passing the gate")
+                    self.pass_gate()
+                else:
+                    print("RESETING")
+                    self.centered = False
+                    self.close_enough = False
+                    self.moving = False
+                    # self.stop()
             else:
-                print('No gates or stop signs found')
-                self.stop_drone()
+                print('No gates found')
+                self.stop()
+        return

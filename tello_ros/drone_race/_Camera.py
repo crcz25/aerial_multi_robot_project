@@ -41,9 +41,8 @@ class Mixin:
     def gate_detector(self, image):
         # Create a copy of the image
         image = image.copy()
-        # If the image is not in grayscale, convert it
-        if len(image.shape) == 3:
-            image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        # Convert the image to grayscale
+        self.show_image("Original", image)
         # Calculate the contours of the image 
         contours, hierarchies = cv.findContours(image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         # Reconvert the image to display the contours with color
@@ -63,27 +62,23 @@ class Mixin:
         # Find the contours that are rectangular
         self.gates = []
         for contour in filtered_contours:
-            # Create a bounding box around the contour
-            x, y, w, h = cv.boundingRect(contour)
-            # Calculate the aspect ratio of the bounding box
-            aspect_ratio = float(w) / h
-            # Calculate the area of the bounding box
-            area = w * h
-            # Normalize the area of the bounding box
-            area = area / (image.shape[0] * image.shape[1])
-            # If the aspect ratio is between 0.75 and 1.0, then the contour is a gate
-            if 0.75 < aspect_ratio < 2.0:
-                # Calculate the center of the gate
-                cx = x + w // 2
-                cy = y + h // 2
-                # Add the gate to the list of gates
-                self.gates.append((x, y, w, h, cx, cy, area))
-                # Draw the bounding box around the gate
-                cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 3)
-                # Draw the center of the gate
-                cv.circle(image, (cx, cy), 10, (0, 255, 0), -1)
+            # Find the bounding box of the contour
+            (x, y), radius = cv.minEnclosingCircle(contour)
+            # Check if the circle has a certain radius
+            if 50 < radius < 800:
+                print("Radius: ", radius)
+                center = (int(x),int(y))
+                radius = int(radius)
+                area = np.pi * radius ** 2
+                area = area / (image.shape[0] * image.shape[1])
+                # Draw the circle
+                cv.circle(image,center,radius,(0,255,0),3)
+                # Draw the center of the circle
+                cv.circle(image,center,10,(0,0,255),-1)
+                self.gates.append([center[0], center[1], radius, area])
+
         # Sort the gates based on the area of the bounding box
-        self.gates = sorted(self.gates, key=lambda x: x[6], reverse=True)
+        self.gates = sorted(self.gates, key=lambda x: x[3], reverse=True)
         # Draw the gates on the image
         # for gate in self.gates:
             # x, y, w, h, cx, cy, _ = gate
@@ -115,7 +110,7 @@ class Mixin:
         if len(self.gates) > 0:
             # Draw a line from the center of the image to the center of the gate
             first_gate = self.gates[0]
-            x, y, w, h, cx, cy, _ = first_gate
+            cx, cy, _, _ = first_gate
             cv.line(image, (cx, cy), (cols // 2, rows // 2), (0, 0, 255), 5)
         if len(self.stop_signs) > 0:
             # Draw a line from the center of the image to the center of the stop sign
