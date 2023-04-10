@@ -112,11 +112,12 @@ class Mixin:
         cv.circle(image, (cols // 2, rows // 2), 10, (0, 0, 255), -1)
 
         # Draw a line from the center of the image to the center of the gate
-        if len(self.gates) > 0 and len(self.stop_signs) > 0:
+        if len(self.gates) > 0:
             # Draw a line from the center of the image to the center of the gate
             first_gate = self.gates[0]
             x, y, w, h, cx, cy, _ = first_gate
             cv.line(image, (cx, cy), (cols // 2, rows // 2), (0, 0, 255), 5)
+        if len(self.stop_signs) > 0:
             # Draw a line from the center of the image to the center of the stop sign
             stop_sign = self.stop_signs[0]
             x, y, w, h, cx, cy, _ = stop_sign
