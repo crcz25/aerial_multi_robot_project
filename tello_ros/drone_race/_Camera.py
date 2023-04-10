@@ -50,16 +50,19 @@ class Mixin:
         if len(image.shape) != 3:
             image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
         # Draw the contours based on the hierarchy of the contours
-        # for i in range(len(contours)):
-        #     # cv.drawContours(image, contours, i, (255, 0, 0), 3)
-        #     if hierarchies[0][i][3] == -1:
-        #         cv.drawContours(image, contours, i, (0, 255, 0), 3)
-        #     else:
-        #         cv.drawContours(image, contours, i, (0, 0, 255), 3)
+        filtered_contours = []
+        for i in range(len(contours)):
+            # cv.drawContours(image, contours, i, (255, 0, 0), 3)
+            if hierarchies[0][i][3] == -1:
+                # cv.drawContours(image, contours, i, (0, 255, 0), 3)
+                pass
+            else:
+                # cv.drawContours(image, contours, i, (0, 0, 255), 3)
+                filtered_contours.append(contours[i])
 
         # Find the contours that are rectangular
         self.gates = []
-        for contour in contours:
+        for contour in filtered_contours:
             # Create a bounding box around the contour
             x, y, w, h = cv.boundingRect(contour)
             # Calculate the aspect ratio of the bounding box
