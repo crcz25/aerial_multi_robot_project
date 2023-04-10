@@ -137,9 +137,16 @@ class Mixin:
         # Reconvert the image to display the contours with color
         if len(image.shape) != 3:
             image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
+        # Draw the contours based on the hierarchy of the contours
+        filtered_contours = []
+        for i in range(len(contours)):
+            # cv.drawContours(image, contours, i, (255, 0, 0), 3)
+            if hierarchies[0][i][0] == -1:
+                # cv.drawContours(image, contours, i, (0, 255, 0), 3)
+                filtered_contours.append(contours[i])
         # Draw the bounding boxes around the stop signs
         self.stop_signs = []
-        for cnt in contours:
+        for cnt in filtered_contours:
             # Create a bounding box around the contour
             x, y, w, h = cv.boundingRect(cnt)
             # Calculate the area of the bounding box
