@@ -95,7 +95,7 @@ def generate_launch_description():
      ])
 
 def create_gates_random():
-     colors = ['red', 'green', 'blue']
+     colors = ['red', 'green', 'blue', 'white']
      shapes = ['circle', 'square']
      gates_nodes = []
 
@@ -112,14 +112,23 @@ def create_gates_random():
      for gate_n, location in enumerate(gates_locations):
           color = random.choice(colors)
           shape = random.choice(shapes)
-          model_color_folder = f'{shape}_gate_{color}'
-          
-          urdf_gate_path = os.path.join(
-               get_package_share_directory('tello_gazebo'),
-               'models',
-               model_color_folder,
-               'model.sdf'
-          )
+
+          if color == 'white':
+               model_path = f'wgate_{shape}_{gate_n}.urdf'
+               urdf_gate_path = os.path.join(
+                    get_package_share_directory('tello_description'),
+                    'urdf',
+                    model_path
+               )
+          else:
+               model_color_folder = f'{shape}_gate_{color}'
+               
+               urdf_gate_path = os.path.join(
+                    get_package_share_directory('tello_gazebo'),
+                    'models',
+                    model_color_folder,
+                    'model.sdf'
+               )
      
           new_node = Node(
                     package='tello_gazebo',
