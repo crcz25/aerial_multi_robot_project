@@ -14,10 +14,10 @@ import time
 import cv2 as cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
+import torch
 
 class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
-    def __init__(self, sim=False):
+    def __init__(self, sim=False, *args, **kwargs):
         super().__init__(f'drone_{randint(0, 1000)}')
         qos_policy = rclpy.qos.QoSProfile(reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                           history=rclpy.qos.HistoryPolicy.KEEP_LAST, depth=1)
@@ -45,6 +45,10 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         self.centered = False
         self.close_enough = False
         self.moving = False
+
+        self.model = kwargs['model']
+        self.input_layer = kwargs['input_layer']
+        self.output_layer = kwargs['output_layer']
 
         # Set the variables according to the environment (simulator or real)
         if self.sim:
@@ -82,29 +86,34 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.speedz = 20
 
     def track_processing(self):
-        lower_range_green = (30, 50, 50)
-        upper_range_green = (90, 255, 255)
+        # lower_range_green = (30, 50, 50)
+        # upper_range_green = (90, 255, 255)
 
         lower_range_red_1 = (0, 25, 25)
         upper_range_red_1 = (10, 255, 255)
         lower_range_red_2 = (160, 25, 25)
         upper_range_red_2 = (180, 255, 255)
+        lower_range_white = (0, 0, 0)
+        upper_range_white = (45, 75, 100)
 
         # Separate green the gates from the background
-        image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
+        # image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
 
         # Separate red the gates from the background
-        image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
+        # image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
 
         # Find the gates in the image
-        gates = self.gate_detector(image_gates)
+        gates = self.gate_detector(self.image)
         # Find the stop sign in the image
-        stop_sign = self.stop_sign_detector(self.image)
         image_stop_sign_1 = self.background_foreground_separator(self.image, lower_range_red_1, upper_range_red_1)
         image_stop_sign_2 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_2)
+        image_stop_sign_3 = self.background_foreground_separator(self.image, lower_range_white, upper_range_white)
         image_stop_sign = cv2.add(image_stop_sign_1, image_stop_sign_2)
+        image_stop_sign = cv2.add(image_stop_sign, image_stop_sign_3)
+        # Apply the mask to the image to get the portion of the image with the stop sign
+        red_in_image = cv2.bitwise_and(self.image, self.image, mask=image_stop_sign)
         # Find the stop sign in the image
-        stop_sign = self.stop_sign_detector(image_stop_sign, method=cv2.RETR_EXTERNAL)
+        stop_sign = self.stop_sign_detector(red_in_image, method=cv2.RETR_EXTERNAL)
 
         # Generate the grid over the image
         image_grid = self.generate_grid(self.image)
@@ -171,12 +180,12 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.stop()
         return
 
-    def approach_gate(self, area):
-        if area > 0.40:
+    def approach_object(self, area, threshold=0.15):
+        if area > threshold:
             self.close_enough = True
             self.stop()
         else:
-            self.move_x(self.speedx * 0.5)
+            self.move_x(self.speedx * 0.25)
         return
 
     def stop_drone(self, area):
@@ -195,20 +204,33 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         return
 
     def pass_gate(self):
-        print("MOOVINGGGG")
         self.moving = True
-        self.move_x(self.speedx * 0.4)
+        self.move_x(self.speedx * 0.45)
         # self.create_timer(5.0, self.stop)
         rclpy.spin_once(self, timeout_sec=5.0)
         self.stop()
         return
 
+    def find_depth(self, image):
+        print("Finding depth")
+        image = image.copy()
+        N, C, H, W = self.input_layer.shape
+        resized_image = cv2.resize(src=image, dsize=(W, H))
+        input_data = np.expand_dims(np.transpose(resized_image, (2, 0, 1)), 0).astype(np.float32)
+        result = self.model({self.input_layer.any_name: input_data})[self.output_layer]
+        depth_map = cv2.normalize(result[0], None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_64F)
+        depth_map = cv2.resize(depth_map, (image.shape[1], image.shape[0]))
+        depth_map = cv2.applyColorMap(np.uint8(255 * depth_map), cv2.COLORMAP_JET)
+        self.show_image("depth", depth_map, resize=True, width=960, height=720)
+        return depth_map
+
     def main_node(self):
         self.get_logger().info('Main node')
         # Check if the image is not empty
         if self.image is not None:
-            # Show the image
+            # # Show the image
             # self.show_image("Drone Image", self.image, resize=True, width=960, height=720)
+            # depth = self.find_depth(self.image)
             # Process the image
             self.track_processing()
             # If the area of the gate is bigger it means that the drone is close to the gate than the stop sign. Call the function approach_gate to move forward to the gate
@@ -221,7 +243,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                     self.center_object(cx, cy)
                 elif not self.close_enough:
                     print("Approaching the gate")
-                    self.approach_gate(area)
+                    self.approach_object(area, 0.45)
                 elif not self.moving:
                     print("Passing the gate")
                     self.pass_gate()
@@ -231,7 +253,29 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                     self.close_enough = False
                     self.moving = False
                     # self.stop()
+            elif len(self.stop_signs) > 0:
+                print("Stop sign detected")
+                x, y, w, h, cx, cy, area = self.stop_signs[0]
+                print(f"Area: {area}")
+                if not self.centered:
+                    print("Centering the stop sign")
+                    self.center_object(cx, cy)
+                elif not self.close_enough:
+                    print("Approaching the stop sign")
+                    self.approach_object(area, 0.15)
+                elif not self.moving:
+                    print("Stopping the drone")
+                    self.stop_drone(area)
+                else:
+                    print("RESETING")
+                    self.centered = False
+                    self.close_enough = False
+                    self.moving = False
+                    # self.stop()
             else:
-                print('No gates found')
+                print("Nothing detected")
+                self.centered = False
+                self.close_enough = False
+                self.moving = False
                 self.stop()
         return

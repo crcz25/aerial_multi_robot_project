@@ -42,48 +42,136 @@ class Mixin:
         # Create a copy of the image
         image = image.copy()
         # Convert the image to grayscale
-        self.show_image("Original", image)
+        image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        # Normalize the image
+        image = cv.normalize(image, None, 0, 255, cv.NORM_MINMAX, cv.CV_8U)
+        # Equalize the histogram of the image
+        clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        image = clahe.apply(image)
+        # Blur the image to reduce noise
+        image = cv.GaussianBlur(image, (3, 3), 0)
+        # Detecte edges with laplacian of gaussian
+        image = cv.Laplacian(image, cv.CV_64F, ksize=3)
+        # Convert the image to absolute values
+        image = cv.convertScaleAbs(image)
+        image = cv.addWeighted(image, 1.5, image, 0, 0)
+        # self.show_image("laplacian", image)
+        # Apply median blur to reduce noise
+        image = cv.medianBlur(image, 3)
+        # self.show_image("blur", image)
+        # Apply Otsu's thresholding
+        image = cv.adaptiveThreshold(image, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 7, -7)
+        kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))
+        image = cv.morphologyEx(image , cv.MORPH_CLOSE, kernel, iterations=1)
+        image = cv.morphologyEx(image, cv.MORPH_OPEN, cv.getStructuringElement(cv.MORPH_RECT, (3, 3)), iterations=1)
+        image = cv.erode(image, cv.getStructuringElement(cv.MORPH_RECT, (3, 3)), iterations=1)
+        image = cv.dilate(image, cv.getStructuringElement(cv.MORPH_RECT, (5, 5)), iterations=1)
+        # image = cv.dilate(image, kernel, iterations=1)
+        # _, image = cv.threshold(image, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        # self.show_image("threshold", image)
+        # Apply morphological operations to remove noise and fill gaps
+        # kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
+        # image = cv.dilate(image, kernel,iterations = 1)
+        # self.show_image("dilate", image)
+        # image = cv.morphologyEx(image, cv.MORPH_CLOSE, kernel, iterations=1)
         # Calculate the contours of the image 
         contours, hierarchies = cv.findContours(image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-        # Reconvert the image to display the contours with color
-        if len(image.shape) != 3:
-            image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
-        # Draw the contours based on the hierarchy of the contours
-        filtered_contours = []
-        for i in range(len(contours)):
-            # cv.drawContours(image, contours, i, (255, 0, 0), 3)
-            if hierarchies[0][i][3] == -1:
-                # cv.drawContours(image, contours, i, (0, 255, 0), 3)
-                pass
-            else:
-                # cv.drawContours(image, contours, i, (0, 0, 255), 3)
-                filtered_contours.append(contours[i])
 
-        # Find the contours that are rectangular
+        # filtered_contours = []
+        # for i in range(len(contours)):
+        #     # cv.drawContours(image, contours, i, (255, 0, 0), 3)
+        #     if hierarchies[0][i][3] == -1:
+        #         # cv.drawContours(image, contours, i, (0, 255, 0), 3)
+        #         pass
+        #     else:
+        #         # cv.drawContours(image, contours, i, (0, 0, 255), 3)
+        #         filtered_contours.append(contours[i])
+
+        filtered_contours = contours
+        filtered_contours = sorted(filtered_contours, key=cv.contourArea, reverse=True)
+        filtered_contours = filtered_contours[:5]
+
+        # Reconvert the image to display the contours with color
+        image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
+
         self.gates = []
-        for contour in filtered_contours:
-            # Find the bounding box of the contour
-            (x, y), radius = cv.minEnclosingCircle(contour)
-            # Check if the circle has a certain radius
-            if 50 < radius < 800:
-                print("Radius: ", radius)
-                center = (int(x),int(y))
-                radius = int(radius)
-                area = np.pi * radius ** 2
-                area = area / (image.shape[0] * image.shape[1])
-                # Draw the circle
-                cv.circle(image,center,radius,(0,255,0),3)
-                # Draw the center of the circle
-                cv.circle(image,center,10,(0,0,255),-1)
-                self.gates.append([center[0], center[1], radius, area])
+        boxes = [None]*len(filtered_contours)
+        circles = [None]*len(filtered_contours)
+
+        for i, c in enumerate(filtered_contours):
+            rect = cv.minAreaRect(c)
+            box = cv.boxPoints(rect)
+            box = np.int0(box)
+            boxes[i] = box
+            circles[i] = cv.minEnclosingCircle(c)
+
+        # Filter out duplicated bounding boxes
+        # filtered_boxes = []
+        # filtered_circles = []
+        # for i in range(len(boxes)):
+        #     is_duplicate = False
+        #     x, y, w, h = cv.boundingRect(boxes[i])
+        #     cx_box_i = x + w/2
+        #     cy_box_i = y + h/2
+        #     for j in range(i+1, len(boxes)):
+        #         x, y, w, h = cv.boundingRect(boxes[j])
+        #         cx_box_j = x + w/2
+        #         cy_box_j = y + h/2
+        #         dist = np.linalg.norm(np.array([cx_box_i, cy_box_i]) - np.array([cx_box_j, cy_box_j]))
+        #         # If they are too close, then they are the same
+        #         if dist < 80:
+        #             is_duplicate = True
+        #             break
+        #     if not is_duplicate:
+        #         filtered_boxes.append(boxes[i])
+        #         filtered_circles.append(circles[i])
+
+        for i, box, circle in zip(range(len(boxes)), boxes, circles):
+            (cx_circle, cy_circle), radius_circle = circle
+            x, y, w, h = cv.boundingRect(box)
+            cx_box = x + w/2
+            cy_box = y + h/2
+            aspect_ratio = min(w, h) / max(w, h)
+            # print("radius_circle_normalized: ", radius_circle_normalized)
+            # if 0.25 < radius_circle_normalized < 0.75:
+            # if True:
+            if 0.8 < aspect_ratio < 1.0 and 80 < radius_circle < 400:
+                print("radius_circle: ", radius_circle)
+                print("aspect_ratio: ", aspect_ratio)
+                dis_x = np.abs(cx_circle - cx_box)
+                dis_x_normalized = dis_x / (image.shape[1] / 2)
+                dis_y = np.abs(cy_circle - cy_box)
+                dis_y_normalized = dis_y / (image.shape[0] / 2)
+                # print("dis_x_normalized: ", dis_x_normalized)
+                # print("dis_y_normalized: ", dis_y_normalized)
+                area_circle = np.pi * radius_circle**2
+                area_circle_normalized = area_circle / (image.shape[0] * image.shape[1])
+                print("area_circle: ", area_circle)
+                print("area_circle_normalized: ", area_circle_normalized)
+                if dis_x_normalized < 0.15 and dis_y_normalized < 0.15 and area_circle_normalized < 0.55:
+                # if True:
+                    # Draw the bounding box
+                    cv.drawContours(image, [box], 0, (0, 255, 0), 3)
+                    # Draw the circle
+                    # cv.circle(image, (int(cx_circle), int(cy_circle)), int(radius_circle), (0, 0, 255), 3)
+                    # cv.putText(image, str(i), (int(cx_circle), int(cy_circle)), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    # cv.putText(image, str(i), (x, y), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    # cv.putText(image, str(f"Radius: {radius_circle:.2f}"), (x, y+40), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    # cv.putText(image, str(f"Area: {area_circle:.2f}"), (x, y+100), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    self.gates.append((int(cx_circle), int(cy_circle), radius_circle, area_circle_normalized))
 
         # Sort the gates based on the area of the bounding box
         self.gates = sorted(self.gates, key=lambda x: x[3], reverse=True)
-        # Draw the gates on the image
-        # for gate in self.gates:
-            # x, y, w, h, cx, cy, _ = gate
-            # cv.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 3)
-            # cv.circle(image, (cx, cy), 10, (255, 0, 0), -1)
+        self.gates = self.gates[:1]
+        # Draw the gate on the image
+        for gate in self.gates:
+            cx, cy, radius, area = gate
+            cv.circle(image, (cx, cy), 10, (255, 0, 0), -1)
+            cv.circle(image, (cx, cy), int(radius), (255, 0, 0), 3)
+            cv.putText(image, "Gate", (cx - 20, cy - 20), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
+            cv.putText(image, "Area: {:.2f}".format(area), (cx - 20, cy + 20), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
+            cv.putText(image, "Radius: {:.2f}".format(radius), (cx - 20, cy + 60), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
+            cv.putText(image, "Center: ({}, {})".format(cx, cy), (cx - 20, cy + 100), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
         return image
 
     def generate_grid(self, image):
@@ -125,25 +213,30 @@ class Mixin:
         # If the image is not in grayscale, convert it
         if len(image.shape) == 3:
             image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+            # Equalize the histogram of the image
+            clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            image = clahe.apply(image)
+            # Blur the image to reduce noise
+            image = cv.GaussianBlur(image, (3, 3), 0)
         # Detect the stop signs
-        # detection = self.detector.detectMultiScale(image, scaleFactor=1.5, minNeighbors=10, minSize=(50, 50))
+        detection = self.detector.detectMultiScale(image, scaleFactor = 1.25, minNeighbors = 7, minSize = (80, 80), maxSize = (500, 500))
         # Calculate the contours of the image 
-        contours, hierarchies = cv.findContours(image, method, cv.CHAIN_APPROX_SIMPLE)
+        # contours, hierarchies = cv.findContours(image, method, cv.CHAIN_APPROX_SIMPLE)
         # Reconvert the image to display the contours with color
         if len(image.shape) != 3:
             image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
         # Draw the contours based on the hierarchy of the contours
-        filtered_contours = []
-        for i in range(len(contours)):
+        # filtered_contours = []
+        # for i in range(len(contours)):
             # cv.drawContours(image, contours, i, (255, 0, 0), 3)
-            if hierarchies[0][i][0] == -1:
+            # if hierarchies[0][i][0] == -1:
                 # cv.drawContours(image, contours, i, (0, 255, 0), 3)
-                filtered_contours.append(contours[i])
+                # filtered_contours.append(contours[i])
         # Draw the bounding boxes around the stop signs
         self.stop_signs = []
-        for cnt in filtered_contours:
+        for cnt in detection:
             # Create a bounding box around the contour
-            x, y, w, h = cv.boundingRect(cnt)
+            x, y, w, h = cnt
             # Calculate the area of the bounding box
             area = w * h
             # Normalize the area of the bounding box
@@ -153,12 +246,15 @@ class Mixin:
             cy = y + h // 2
             # Add the stop sign to the list of stop signs
             self.stop_signs.append((x, y, w, h, cx, cy, area))
-            # Draw the bounding box
+        # Sort the stop signs based on the area of the bounding box
+        self.stop_signs = sorted(self.stop_signs, key=lambda x: x[6], reverse=True)
+        if len(self.stop_signs) > 0:
+            # Draw a line from the center of the image to the center of the stop sign
+            stop_sign = self.stop_signs[0]
+            x, y, w, h, cx, cy, _ = stop_sign
             cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
             # Draw the center of the stop sign
             cv.circle(image, (cx, cy), 10, (0, 255, 0), -1)
-        # Sort the stop signs based on the area of the bounding box
-        self.stop_signs = sorted(self.stop_signs, key=lambda x: x[6], reverse=True)
         return image
 
     def image_sub_callback(self, data):
