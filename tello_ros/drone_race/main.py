@@ -25,7 +25,7 @@ def main():
 
     rclpy.init()
     sim = True
-    minimal_client = Drone(sim=sim, model=compiled_model, input_layer=input_layer, output_layer=output_layer)
+    minimal_client = Drone(sim=sim, model=compiled_model, input_layer=input_layer, output_layer=output_layer, gate_color='green')
 
     try:
         minimal_client.get_logger().info("Starting node")

@@ -49,6 +49,15 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         self.model = kwargs['model']
         self.input_layer = kwargs['input_layer']
         self.output_layer = kwargs['output_layer']
+        self.gate_color = kwargs['gate_color']
+        
+        self.colors_ranges = { 'red_1': [(0, 15, 0), (20, 255, 255)],
+                              'red_2': [(150, 0, 0), (180, 255, 255)],
+                               'green': [(30, 50, 50), (90, 255, 255)],
+                               'blue': [(100, 100, 0), (130, 255, 255)],
+                               'white': [(0, 0, 65), (0, 0, 145)],
+                               'gray': [(0, 0, 0), (110, 125, 100)]
+                                }
 
         # Set the variables according to the environment (simulator or real)
         if self.sim:
@@ -86,30 +95,41 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.speedz = 20
 
     def track_processing(self):
-        # lower_range_green = (30, 50, 50)
-        # upper_range_green = (90, 255, 255)
-
-        lower_range_red_1 = (0, 25, 25)
-        upper_range_red_1 = (10, 255, 255)
-        lower_range_red_2 = (160, 25, 25)
-        upper_range_red_2 = (180, 255, 255)
-        lower_range_white = (0, 0, 0)
-        upper_range_white = (45, 75, 100)
-
         # Separate green the gates from the background
         # image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
 
         # Separate red the gates from the background
         # image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
 
-        # Find the gates in the image
-        gates = self.gate_detector(self.image)
+        # Find the gates in the image based on the color if any
+        image_gates = None
+        if self.gate_color == 'red':
+            image_gates = self.background_foreground_separator(self.image, self.colors_ranges['red_1'][0], self.colors_ranges['red_1'][1])
+            image_gates = cv2.add(image_gates, self.background_foreground_separator(self.image, self.colors_ranges['red_2'][0], self.colors_ranges['red_2'][1]))
+            # Apply the mask to the image to get the portion of the image
+            image_gates = cv2.bitwise_and(self.image, self.image, mask=image_gates)
+        elif self.gate_color == 'green':
+            image_gates = self.background_foreground_separator(self.image, self.colors_ranges['green'][0], self.colors_ranges['green'][1])
+            # Apply the mask to the image to get the portion of the image
+            image_gates = cv2.bitwise_and(self.image, self.image, mask=image_gates)
+        elif self.gate_color == 'blue':
+            image_gates = self.background_foreground_separator(self.image, self.colors_ranges['blue'][0], self.colors_ranges['blue'][1])
+            # Apply the mask to the image to get the portion of the image
+            image_gates = cv2.bitwise_and(self.image, self.image, mask=image_gates)
+        elif self.gate_color == 'white':
+            image_gates = self.background_foreground_separator(self.image, self.colors_ranges['white'][0], self.colors_ranges['white'][1])
+            # Apply the mask to the image to get the portion of the image
+            image_gates = cv2.bitwise_and(self.image, self.image, mask=image_gates)
+        else:
+            image_gates = self.image.copy()
+        gates = self.gate_detector(image_gates)
         # Find the stop sign in the image
-        image_stop_sign_1 = self.background_foreground_separator(self.image, lower_range_red_1, upper_range_red_1)
-        image_stop_sign_2 = self.background_foreground_separator(self.image, lower_range_red_2, upper_range_red_2)
-        image_stop_sign_3 = self.background_foreground_separator(self.image, lower_range_white, upper_range_white)
+        image_stop_sign_1 = self.background_foreground_separator(self.image, self.colors_ranges['red_1'][0], self.colors_ranges['red_1'][1])
+        image_stop_sign_2 = self.background_foreground_separator(self.image, self.colors_ranges['red_2'][0], self.colors_ranges['red_2'][1])
+        image_stop_sign_3 = self.background_foreground_separator(self.image, self.colors_ranges['gray'][0], self.colors_ranges['gray'][1])
         image_stop_sign = cv2.add(image_stop_sign_1, image_stop_sign_2)
         image_stop_sign = cv2.add(image_stop_sign, image_stop_sign_3)
+        self.show_image("Stop sign", image_stop_sign)
         # Apply the mask to the image to get the portion of the image with the stop sign
         red_in_image = cv2.bitwise_and(self.image, self.image, mask=image_stop_sign)
         # Find the stop sign in the image
