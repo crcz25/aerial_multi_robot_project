@@ -250,7 +250,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             # If the area of the gate is bigger it means that the drone is close to the gate than the stop sign. Call the function approach_gate to move forward to the gate
             if len(self.gates) > 0:
                 print("Gate Detected")
-                cx, cy, radius, area =  self.gates[0]
+                x, y, w, h, cx, cy, area =  self.gates[0]
                 print(f"Area: {area}")
                 if not self.centered:
                     print("Centering the gate")
