@@ -51,8 +51,8 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         self.output_layer = kwargs['output_layer']
         self.gate_color = kwargs['gate_color']
         
-        self.colors_ranges = { 'red_1': [(0, 15, 0), (20, 255, 255)],
-                              'red_2': [(150, 0, 0), (180, 255, 255)],
+        self.colors_ranges = { 'red_1': [(0, 60, 0), (10, 255, 255)],
+                              'red_2': [(160, 0, 0), (180, 255, 255)],
                                'green': [(30, 50, 50), (90, 255, 255)],
                                'blue': [(100, 100, 0), (130, 255, 255)],
                                'white': [(0, 0, 65), (0, 0, 145)],
@@ -95,14 +95,9 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.speedz = 20
 
     def track_processing(self):
-        # Separate green the gates from the background
-        # image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
-
-        # Separate red the gates from the background
-        # image_gates = self.background_foreground_separator(self.image, lower_range_green, upper_range_green)
-
         # Find the gates in the image based on the color if any
         image_gates = None
+
         if self.gate_color == 'red':
             image_gates = self.background_foreground_separator(self.image, self.colors_ranges['red_1'][0], self.colors_ranges['red_1'][1])
             image_gates = cv2.add(image_gates, self.background_foreground_separator(self.image, self.colors_ranges['red_2'][0], self.colors_ranges['red_2'][1]))
@@ -123,17 +118,16 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         else:
             image_gates = self.image.copy()
         gates = self.gate_detector(image_gates)
+
         # Find the stop sign in the image
         image_stop_sign_1 = self.background_foreground_separator(self.image, self.colors_ranges['red_1'][0], self.colors_ranges['red_1'][1])
         image_stop_sign_2 = self.background_foreground_separator(self.image, self.colors_ranges['red_2'][0], self.colors_ranges['red_2'][1])
-        image_stop_sign_3 = self.background_foreground_separator(self.image, self.colors_ranges['gray'][0], self.colors_ranges['gray'][1])
+        # image_stop_sign_3 = self.background_foreground_separator(self.image, self.colors_ranges['gray'][0], self.colors_ranges['gray'][1])
+        # Combine the two images to get the complete stop sign
         image_stop_sign = cv2.add(image_stop_sign_1, image_stop_sign_2)
-        image_stop_sign = cv2.add(image_stop_sign, image_stop_sign_3)
-        self.show_image("Stop sign", image_stop_sign)
-        # Apply the mask to the image to get the portion of the image with the stop sign
-        red_in_image = cv2.bitwise_and(self.image, self.image, mask=image_stop_sign)
+        # image_stop_sign = cv2.add(image_stop_sign, image_stop_sign_3)
         # Find the stop sign in the image
-        stop_sign = self.stop_sign_detector(red_in_image, method=cv2.RETR_EXTERNAL)
+        stop_sign = self.stop_sign_detector(image_stop_sign)
 
         # Generate the grid over the image
         image_grid = self.generate_grid(self.image)
@@ -260,13 +254,13 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                 print(f"Area: {area}")
                 if not self.centered:
                     print("Centering the gate")
-                    self.center_object(cx, cy)
+                    #self.center_object(cx, cy)
                 elif not self.close_enough:
                     print("Approaching the gate")
-                    self.approach_object(area, 0.45)
+                    #self.approach_object(area, 0.45)
                 elif not self.moving:
                     print("Passing the gate")
-                    self.pass_gate()
+                    #self.pass_gate()
                 else:
                     print("RESETING")
                     self.centered = False
@@ -279,19 +273,19 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                 print(f"Area: {area}")
                 if not self.centered:
                     print("Centering the stop sign")
-                    self.center_object(cx, cy)
+                    #self.center_object(cx, cy)
                 elif not self.close_enough:
                     print("Approaching the stop sign")
-                    self.approach_object(area, 0.15)
+                    #self.approach_object(area, 0.15)
                 elif not self.moving:
                     print("Stopping the drone")
-                    self.stop_drone(area)
+                    #self.stop_drone(area)
                 else:
                     print("RESETING")
                     self.centered = False
                     self.close_enough = False
                     self.moving = False
-                    # self.stop()
+                    #self.stop()
             else:
                 print("Nothing detected")
                 self.centered = False

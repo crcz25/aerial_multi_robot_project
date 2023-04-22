@@ -3,9 +3,9 @@ from drone import Drone
 from openvino.runtime import Core
 
 def main():
-    # ie = Core()
+    ie = Core()
 
-    # devices = ie.available_devices
+    devices = ie.available_devices
 
     # for device in devices:
     #     device_name = ie.get_property(device, "FULL_DEVICE_NAME")
@@ -25,7 +25,7 @@ def main():
 
     rclpy.init()
     sim = True
-    minimal_client = Drone(sim=sim, model=compiled_model, input_layer=input_layer, output_layer=output_layer, gate_color='green')
+    minimal_client = Drone(sim=sim, model=compiled_model, input_layer=input_layer, output_layer=output_layer, gate_color='all')
 
     try:
         minimal_client.get_logger().info("Starting node")
