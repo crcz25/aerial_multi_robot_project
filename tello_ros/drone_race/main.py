@@ -3,9 +3,9 @@ from drone import Drone
 from openvino.runtime import Core
 
 def main():
-    ie = Core()
+    # ie = Core()
 
-    devices = ie.available_devices
+    # devices = ie.available_devices
 
     # for device in devices:
     #     device_name = ie.get_property(device, "FULL_DEVICE_NAME")
@@ -16,8 +16,6 @@ def main():
     # compiled_model = ie.compile_model(model=model, device_name="CPU")
     # input_layer = compiled_model.input(0)
     # output_layer = compiled_model.output(0)
-    # print("INPUT", input_layer.shape)
-    # print("OUTPUT", output_layer.shape)
 
     compiled_model = None
     input_layer = None

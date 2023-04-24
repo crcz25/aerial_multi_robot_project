@@ -36,12 +36,12 @@ class Mixin:
         # image = cv.adaptiveThreshold(image, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 11, 2)
         # Apply Otsu's thresholding
         # _, image = cv.threshold(image, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
-        # self.show_image("background removal", image)
         return image
 
     def edge_detector(self, image):
-        # Convert the image to grayscale
-        image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        if len(image.shape) == 3:
+            # Convert the image to grayscale
+            image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
         # Normalize the image
         image = cv.normalize(image, None, 0, 255, cv.NORM_MINMAX, cv.CV_8U)
         # Equalize the histogram of the image
@@ -54,10 +54,8 @@ class Mixin:
         # Convert the image to absolute values
         image = cv.convertScaleAbs(image)
         image = cv.addWeighted(image, 1.5, image, 0, 0)
-        # self.show_image("laplacian", image)
         # Apply median blur to reduce noise
         image = cv.medianBlur(image, 3)
-        # self.show_image("blur", image)
         # Apply Otsu's thresholding
         image = cv.adaptiveThreshold(image, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 7, -7)
         kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))
@@ -77,41 +75,64 @@ class Mixin:
         # Find the gate
         self.gates = []
         for contour in contours:
-            # Approximate the contour with a polygon
-            epsilon = 0.01*cv.arcLength(contour,True)
-            approx = cv.approxPolyDP(contour,epsilon,True)
-            # Check if the approximated shape has 4 sides (rectangle gate)
-            if len(approx) == 4 and cv.isContourConvex(approx):
-                # Draw the contour of the square on the original image
-                x, y, w, h = cv.boundingRect(approx)
-                # Calculate the area of the gate
-                area = cv.contourArea(contour)
+            # cv.drawContours(contour, [contour], -1, (0, 255, 0), 2)
+            # rect = cv.minAreaRect(contour)
+            # box = cv.boxPoints(rect)
+            # box = np.int0(box)
+            # cv.drawContours(image,[box],0,(0,0,255),2)
+            # Create a bounding box around the contour
+            x, y, w, h = cv.boundingRect(contour)
+            # Calculate the area of the gate
+            area = cv.contourArea(contour)
+            area = area / (image.shape[0] * image.shape[1])
+            # Calculate the ratio of the bounding box to see if it is a square
+            ratio = w / h
+            # Draw the bounding box
+            # If the ratio is a square and the area is between 2% and 60% of the image
+            if 0.85 < ratio < 1.5 and 0.03 < area < 0.6:
                 # Calculate the center of the gate
                 cx = x + w / 2
                 cy = y + h / 2
-                # Save the gate
-                self.gates.append((x, y, w, h, int(cx), int(cy), area))
-            # Check if the approximated shape is a circle
-            elif len(approx) >= 8:
-                area = cv.contourArea(contour)
-                perimeter = cv.arcLength(contour, True)
-                roundness = 4 * np.pi * area / perimeter ** 2
-                # Get the minimum enclosing circle
-                if roundness >= 0.85:
-                    (cx, cy), radius = cv.minEnclosingCircle(contour)
-                    x, y, w, h = cv.boundingRect(approx)
+                # If there is any stop sign in the image
+                if self.stop_signs:
+                    x_stop, y_stop, w_stop, h_stop, cx_stop, cy_stop, area_stop = self.stop_signs[0]
+                    # Calculate the intersection over union between the gate and the stop sign
+                    boxAArea = w * h
+                    boxBArea = w_stop * h_stop
+                    boxA = np.array([x, y, x + w, y + h])
+                    boxB = np.array([x_stop, y_stop, x_stop + w_stop, y_stop + h_stop])
+                    xA = max(boxA[0], boxB[0])
+                    yA = max(boxA[1], boxB[1])
+                    xB = min(boxA[2], boxB[2])
+                    yB = min(boxA[3], boxB[3])
+                    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+                    iou = interArea / float(boxAArea + boxBArea - interArea)
+                    # If the intersection over union is greater than 0.5 discard the gate
+                    if iou > 0.5:
+                        continue
+                    # Save the gate
+                    self.gates.append((x, y, w, h, int(cx), int(cy), area))
+                else:
                     # Save the gate
                     self.gates.append((x, y, w, h, int(cx), int(cy), area))
 
-        # Draw the gate on the image
-        if len(self.gates) > 0:
-            gate = self.gates[0]
-            x, y, w, h, cx, cy, area = gate
-            cv.circle(image, (cx, cy), 10, (0, 355, 0), -1)
-            cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 5)
-            cv.putText(image, "Gate", (cx - 20, cy - 20), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
-            cv.putText(image, "Area: {:.2f}".format(area), (cx - 20, cy + 20), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
-            cv.putText(image, "Center: ({}, {})".format(cx, cy), (cx - 20, cy + 100), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
+        # Sort the gates based on the area of the bounding box
+        self.gates = sorted(self.gates, key=lambda x: x[6], reverse=True)
+
+        # Update the current and previous gates only if the drone is not moving
+        if len(self.gates) > 0: # and not self.moving:
+            self.curr_gate = self.gates[0]
+            self.gate_found = True
+        else:
+            # self.curr_gate = None
+            self.gate_found = False
+
+        if self.curr_gate is not None:
+            x, y, w, h, cx, cy, area = self.curr_gate
+            cv.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            cv.circle(image, (cx, cy), 5, (0, 0, 255), -1)
+            cv.putText(image, "Curr", (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(image, "Area: {:.2f}".format(area), (x, y + 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         return image
 
@@ -136,14 +157,14 @@ class Mixin:
         cv.circle(image, (cols // 2, rows // 2), 10, (0, 0, 255), -1)
 
         # Draw a line from the center of the image to the center of the gate
-        if len(self.gates) > 0:
+        if self.curr_gate is not None:
             # Draw a line from the center of the image to the center of the gate
-            first_gate = self.gates[0]
+            first_gate = self.curr_gate
             x, y, w, h, cx, cy, _ = first_gate
             cv.line(image, (cx, cy), (cols // 2, rows // 2), (0, 255, 0), 5)
-        if len(self.stop_signs) > 0:
+        if self.curr_stop is not None:
             # Draw a line from the center of the image to the center of the stop sign
-            stop_sign = self.stop_signs[0]
+            stop_sign = self.curr_stop
             x, y, w, h, cx, cy, _ = stop_sign
             cv.line(image, (cx, cy), (cols // 2, rows // 2), (0, 0, 255), 5)
         return image
@@ -167,30 +188,44 @@ class Mixin:
         # Draw the contours based on the hierarchy of the contours
         for contour in contours:
             # Approximate the contour with a polygon
-            epsilon = 0.01*cv.arcLength(contour,True)
+            epsilon = 0.08*cv.arcLength(contour,True)
             approx = cv.approxPolyDP(contour,epsilon,True)
             # Check if the approximated shape has 8 sides
-            if 6 < len(approx) < 10 and cv.isContourConvex(approx):
+            if len(approx) == 4 and cv.isContourConvex(approx):
                 # Calculate the area of the contour
                 area = cv.contourArea(contour)
                 x, y, w, h = cv.boundingRect(contour)
                 # Calculate the area of the bounding box
-                area_box = w * h
-                area_box = area_box / (image.shape[0] * image.shape[1])
-                # Calculate the center of the bounding box
-                cx = x + w // 2
-                cy = y + h // 2
-                self.stop_signs.append((x, y, w, h, cx, cy, area_box))
+                area = w * h
+                area = area / (image.shape[0] * image.shape[1])
+                # Calculate the ratio of the bounding box to see if it is a square
+                ratio = w / h
+                # If the ratio is a square and the area is between 2% and 60% of the image
+                # print("STOP SIGN Ratio: {:.2f}, Area: {:.2f}".format(ratio, area))
+                if 0.8 < ratio < 1.1 and 0.010 < area < 0.6:
+                    # Calculate the center of the bounding box
+                    cx = x + w // 2
+                    cy = y + h // 2
+                    # Save the gate
+                    self.stop_signs.append((x, y, w, h, cx, cy, area))
 
-        # Draw the bounding boxes around the stop signs
-        if len(self.stop_signs) > 0:
-            # Draw a line from the center of the image to the center of the stop sign
-            stop_sign = self.stop_signs[0]
-            x, y, w, h, cx, cy, area = stop_sign
-            cv.circle(image, (cx, cy), 10, (255, 0, 0), -1)
-            cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 3)
-            cv.putText(image, "Area: {:.2f}".format(area), (cx - 20, cy + 20), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
-            cv.putText(image, "Center: ({}, {})".format(cx, cy), (cx - 20, cy + 60), cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3)
+        # Sort the stop signs based on the area of the bounding box
+        self.stop_signs = sorted(self.stop_signs, key=lambda x: x[6], reverse=True)
+
+        # Update the current and previous stop signs only if the drone is not moving
+        if len(self.stop_signs) > 0: # and not self.moving:
+            self.curr_stop = self.stop_signs[0]
+            self.stop_sign_found = True
+        else:
+            # self.curr_stop = None
+            self.stop_sign_found = False
+
+        if self.curr_stop is not None:
+            x, y, w, h, cx, cy, area = self.curr_stop
+            cv.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            cv.circle(image, (cx, cy), 5, (0, 0, 255), -1)
+            cv.putText(image, "Curr", (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(image, "Area: {:.2f}".format(area), (x, y + 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         return image
 
