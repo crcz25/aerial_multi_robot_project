@@ -1,5 +1,6 @@
 from std_msgs.msg import Empty
 from geometry_msgs.msg import Twist, Point, PoseStamped
+from tf_transformations import euler_from_quaternion
 
 import numpy as np
 
@@ -33,18 +34,25 @@ class Mixin:
         self.odometry = msg
         if self.sim:
             self.trajectory_odom.append([msg.pose.pose.position.x, msg.pose.pose.position.y])
-            self.theta_odom = np.arctan2(msg.pose.pose.position.y - self.center.y,
-                                         msg.pose.pose.position.x - self.center.x)
+            orientation = msg.pose.pose.orientation
+            _, _, self.theta = euler_from_quaternion([orientation.x, orientation.y, orientation.z, orientation.w])
         else:
             self.trajectory_odom.append([msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z])
-            self.theta_odom = np.arctan2(msg.twist.twist.linear.y - self.center.y,
-                                         msg.twist.twist.linear.x - self.center.x)
+            orientation = msg.pose.pose.orientation
+            _, _, self.theta = euler_from_quaternion([orientation.x, orientation.y, orientation.z, orientation.w])
+
         # Update the current position
         self.current_position = msg.pose.pose.position
-        self.current_orientation = msg.pose.pose.orientation
+        # self.current_orientation = msg.pose.pose.orientation
         # print('Current position: {:.2f}, {:.2f}, {:.2f}'.format(self.current_position.x, self.current_position.y, self.current_position.z))
         # print('Current orientation: {:.2f} {:.2f} {:.2f} {:.2f}'.format(self.current_orientation.x, self.current_orientation.y, self.current_orientation.z, self.current_orientation.w))
-        # print('Current theta: {:.2f}'.format(self.theta_odom))
+        # print('Current theta quaternion: {:.2f}'.format(self.theta))
+        # Rotate the frame of reference according to the current position and the angle
+        rotation_matrix = np.array([[np.cos(self.theta), np.sin(self.theta)],
+                                    [-np.sin(self.theta), np.cos(self.theta)]])
+        self.current_position = np.dot(rotation_matrix, np.array([self.current_position.x, self.current_position.y]))
+        # print('Rotation matrix: {}'.format(rotation_matrix))
+        # print('Current position: {:.2f}, {:.2f}'.format(self.current_position[0], self.current_position[1]))
 
 
     def move_forward(self):
