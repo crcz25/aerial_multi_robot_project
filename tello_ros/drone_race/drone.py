@@ -58,13 +58,15 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         self.output_layer = kwargs['output_layer']
         self.gate_color = kwargs['gate_color']
         
-        self.colors_ranges = { 'red_1': [(0, 60, 0), (10, 255, 255)],
-                              'red_2': [(160, 0, 0), (180, 255, 255)],
-                               'green': [(30, 50, 50), (90, 255, 255)],
-                               'blue': [(90, 100, 0), (140, 255, 255)],
-                               'white': [(0, 0, 65), (0, 0, 145)],
-                               'gray': [(0, 0, 0), (110, 125, 100)]
-                                }
+        self.colors_ranges = {
+            # 'white_background' : [(0, 0, 0), (180, 255, 160)],
+            # 'gray': [(0, 0, 57), (180, 255, 255)],
+            'red': [(0, 200, 0), (10, 255, 255)],
+            'green': [(30, 50, 50), (90, 255, 255)],
+            'blue': [(90, 100, 0), (140, 255, 255)],
+            'white': [(0, 0, 65), (0, 0, 145)],
+            'stop_sign': [(0, 50, 0), (180, 255, 50)],
+        }
 
         # Set the variables according to the environment (simulator or real)
         if self.sim:
@@ -104,11 +106,12 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
     def track_processing(self):
         # Create an empty image to store the gates the same size and type as the original image
         image_gates = np.zeros(self.image.shape, dtype=np.uint8)
+
         # Find the gates in the image based on the color that is passed or all the colors
         if self.gate_color == 'all':
             # Iterate over all the colors except the gray
             for color in self.colors_ranges.keys():
-                if color != 'gray':
+                if color != 'stop_sign':
                     image_gates += self.background_foreground_separator(self.image, self.colors_ranges[color][0], self.colors_ranges[color][1])
         else:
             image_gates = self.background_foreground_separator(self.image, self.colors_ranges[self.gate_color][0], self.colors_ranges[self.gate_color][1])
@@ -120,11 +123,11 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         gates = self.gate_detector(image_gates)
 
         # Find the stop sign in the image
-        image_stop_sign_1 = self.background_foreground_separator(self.image, self.colors_ranges['red_1'][0], self.colors_ranges['red_1'][1])
-        image_stop_sign_2 = self.background_foreground_separator(self.image, self.colors_ranges['red_2'][0], self.colors_ranges['red_2'][1])
+        # image_stop_sign_1 = self.background_foreground_separator(self.image, self.colors_ranges['red_1'][0], self.colors_ranges['red_1'][1])
+        image_stop_sign = self.background_foreground_separator(self.image, self.colors_ranges['stop_sign'][0], self.colors_ranges['stop_sign'][1])
         # image_stop_sign_3 = self.background_foreground_separator(self.image, self.colors_ranges['gray'][0], self.colors_ranges['gray'][1])
         # Combine the two images to get the complete stop sign
-        image_stop_sign = cv2.add(image_stop_sign_1, image_stop_sign_2)
+        # image_stop_sign = cv2.add(image_stop_sign_1, image_stop_sign_2)
         # image_stop_sign = cv2.add(image_stop_sign, image_stop_sign_3)
         # Find the stop sign in the image
         stop_sign = self.stop_sign_detector(image_stop_sign)
