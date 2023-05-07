@@ -75,7 +75,7 @@ class Mixin:
         # Find the gate
         self.gates = []
         for contour in contours:
-            # cv.drawContours(contour, [contour], -1, (0, 255, 0), 2)
+            cv.drawContours(image, [contour], 0, (0, 255, 0), 2)
             # rect = cv.minAreaRect(contour)
             # box = cv.boxPoints(rect)
             # box = np.int0(box)
@@ -89,7 +89,7 @@ class Mixin:
             ratio = w / h
             # Draw the bounding box
             # If the ratio is a square and the area is between 2% and 60% of the image
-            if 0.85 < ratio < 1.5 and 0.03 < area < 0.6:
+            if 0.80 < ratio < 1.5 and 0.04 < area < 0.6:
                 # Calculate the center of the gate
                 cx = x + w / 2
                 cy = y + h / 2
@@ -111,10 +111,10 @@ class Mixin:
                     if iou > 0.5:
                         continue
                     # Save the gate
-                    self.gates.append((x, y, w, h, int(cx), int(cy), area))
+                    self.gates.append((x, y, w, h, int(cx), int(cy), np.round(area, 2)))
                 else:
                     # Save the gate
-                    self.gates.append((x, y, w, h, int(cx), int(cy), area))
+                    self.gates.append((x, y, w, h, int(cx), int(cy), np.round(area, 2)))
 
         # Sort the gates based on the area of the bounding box
         self.gates = sorted(self.gates, key=lambda x: x[6], reverse=True)
@@ -123,9 +123,11 @@ class Mixin:
         if len(self.gates) > 0: # and not self.moving:
             self.curr_gate = self.gates[0]
             self.gate_found = True
+            self.searching = False
         else:
-            # self.curr_gate = None
+            self.curr_gate = None
             self.gate_found = False
+            self.searching = True
 
         if self.curr_gate is not None:
             x, y, w, h, cx, cy, area = self.curr_gate
@@ -202,7 +204,7 @@ class Mixin:
                 ratio = w / h
                 # If the ratio is a square and the area is between 2% and 60% of the image
                 # print("STOP SIGN Ratio: {:.2f}, Area: {:.2f}".format(ratio, area))
-                if 0.8 < ratio < 1.1 and 0.010 < area < 0.6:
+                if 0.7 < ratio < 1.1 and 0.010 < area < 0.4:
                     # Calculate the center of the bounding box
                     cx = x + w // 2
                     cy = y + h // 2
@@ -216,9 +218,11 @@ class Mixin:
         if len(self.stop_signs) > 0: # and not self.moving:
             self.curr_stop = self.stop_signs[0]
             self.stop_sign_found = True
+            self.searching = False
         else:
-            # self.curr_stop = None
+            self.curr_stop = None
             self.stop_sign_found = False
+            self.searching = True
 
         if self.curr_stop is not None:
             x, y, w, h, cx, cy, area = self.curr_stop
@@ -234,5 +238,7 @@ class Mixin:
         try:
             # Convert your ROS Image message to OpenCV2
             self.image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+            # Resize the image
+            # self.image = cv.resize(self.image, (960, 720))
         except CvBridgeError as e:
             print(e)
