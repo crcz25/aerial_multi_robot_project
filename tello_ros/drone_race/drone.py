@@ -197,7 +197,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.stop()
         return
 
-    def approach_object(self, area, threshold=0.1):
+    def approach_object(self, area, threshold=0.15):
         print(f"Area: {area}")
         # Calculate the error between the area of the gate and the threshold
         error = np.round(np.abs(0.40 - area), 2)
@@ -205,9 +205,11 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         # Calculate the steps to move
         steps = error * self.speedx
         # Check if the drone is close enough to the gate
-        if error > threshold:
+        # if error > threshold:
+        if area < threshold:
             self.move_x(steps)
             self.close_enough = False
+            self.centered = False
             self.moving = True
         else:
             self.moving = False
@@ -218,12 +220,12 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
 
     def stop_drone(self, area, threshold=0.1):
         # Calculate the error between the area of the gate and the threshold
-        error = np.abs(0.45 - area) * 10
+        error = np.abs(0.4 - area) 
         print(f"Error: {error}")
         # Calculate the steps to move
-        steps = error * self.speedx * 0.2
+        steps = error * self.speedx
         # Check if the drone is close enough to the gate
-        if error > threshold:
+        if area < threshold:
             self.move_x(steps)
             self.moving = True
             self.close_enough = False
@@ -232,11 +234,11 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.close_enough = True
             self.moving = False
             self.stop()
-        # if self.sim:
-        #     self.send_request_simulator('land')
-        # else:
-        #     self.land()
-        # exit()
+            if self.sim:
+                self.send_request_simulator('land')
+            else:
+                self.land()
+            exit()
         return
 
     def pass_gate(self, threshold=0.1):
@@ -255,13 +257,13 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.move_x(linear_velocity)
             self.moving = True
         else:
+            self.stop()
             self.centered = False
             self.close_enough = False
             self.gate_found = False
             self.curr_gate = None
             self.moving = False
             self.searching = True
-            self.stop()
         return
 
     def find_depth(self, image):
