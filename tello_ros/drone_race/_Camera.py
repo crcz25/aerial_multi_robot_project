@@ -89,7 +89,7 @@ class Mixin:
             ratio = w / h
             # Draw the bounding box
             # If the ratio is a square and the area is between 2% and 60% of the image
-            if 0.80 < ratio < 1.5 and 0.04 < area < 0.6:
+            if 0.75 < ratio < 1.5 and 0.04 < area < 0.6:
                 # Calculate the center of the gate
                 cx = x + w / 2
                 cy = y + h / 2
@@ -120,14 +120,15 @@ class Mixin:
         self.gates = sorted(self.gates, key=lambda x: x[6], reverse=True)
 
         # Update the current and previous gates only if the drone is not moving
-        if len(self.gates) > 0: # and not self.moving:
+        # if not self.moving:
+        if len(self.gates) > 0:
             self.curr_gate = self.gates[0]
             self.gate_found = True
             self.searching = False
-        else:
-            self.curr_gate = None
-            self.gate_found = False
-            self.searching = True
+        # else:
+            # self.curr_gate = None
+            # self.gate_found = False
+            # self.searching = True
 
         if self.curr_gate is not None:
             x, y, w, h, cx, cy, area = self.curr_gate
