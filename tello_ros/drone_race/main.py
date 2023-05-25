@@ -1,6 +1,6 @@
 import rclpy
 from drone import Drone
-from openvino.runtime import Core
+# from openvino.runtime import Core
 
 def main():
     # ie = Core()
