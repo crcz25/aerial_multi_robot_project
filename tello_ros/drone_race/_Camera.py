@@ -89,7 +89,7 @@ class Mixin:
             ratio = w / h
             # Draw the bounding box
             # If the ratio is a square and the area is between 2% and 60% of the image
-            if 0.75 < ratio < 1.5 and 0.04 < area < 0.6:
+            if 0.75 < ratio < 1.5 and 0.02 < area < 0.6:
                 # Calculate the center of the gate
                 cx = x + w / 2
                 cy = y + h / 2
