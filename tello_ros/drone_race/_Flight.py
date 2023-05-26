@@ -63,46 +63,41 @@ class Mixin:
 
     def move_x(self, steps=0.1):
         self.get_logger().info('Moving X')
-        destination_twist = Twist()
-        destination_twist.linear.x = float(steps)
-        destination_twist.linear.y = 0.0
-        destination_twist.linear.z = 0.0
-        destination_twist.angular.z = 0.0
-        self.publisher_twist.publish(destination_twist)
+        self.destination_twist.linear.x = float(steps)
+        self.destination_twist.linear.y = 0.0
+        self.destination_twist.linear.z = 0.0
+        self.destination_twist.angular.z = 0.0
+        self.publisher_twist.publish(self.destination_twist)
 
     def move_y(self, steps=0.1):
         self.get_logger().info('Moving Y')
-        destination_twist = Twist()
-        destination_twist.linear.x = 0.0
-        destination_twist.linear.y = float(steps)
-        destination_twist.linear.z = 0.0
-        destination_twist.angular.z = 0.0
-        self.publisher_twist.publish(destination_twist)
+        self.destination_twist.linear.x = 0.0
+        self.destination_twist.linear.y = float(steps)
+        self.destination_twist.linear.z = 0.0
+        self.destination_twist.angular.z = 0.0
+        self.publisher_twist.publish(self.destination_twist)
 
     def move_z(self, steps=0.1):
         self.get_logger().info('Moving Z')
-        destination_twist = Twist()
-        destination_twist.linear.x = 0.0
-        destination_twist.linear.y = 0.0
-        destination_twist.linear.z = float(steps)
-        destination_twist.angular.z = 0.0
-        self.publisher_twist.publish(destination_twist)
+        self.destination_twist.linear.x = 0.0
+        self.destination_twist.linear.y = 0.0
+        self.destination_twist.linear.z = float(steps)
+        self.destination_twist.angular.z = 0.0
+        self.publisher_twist.publish(self.destination_twist)
 
     def rotate(self, steps=0.1):
         self.get_logger().info('Rotating')
-        destination_twist = Twist()
-        destination_twist.linear.x = 0.0
-        destination_twist.linear.y = 0.0
-        destination_twist.linear.z = 0.0
-        destination_twist.angular.z = float(steps)
-        self.publisher_twist.publish(destination_twist)
+        self.destination_twist.linear.x = 0.0
+        self.destination_twist.linear.y = 0.0
+        self.destination_twist.linear.z = 0.0
+        self.destination_twist.angular.z = float(steps)
+        self.publisher_twist.publish(self.destination_twist)
 
     def stop(self):
         self.get_logger().info('Stopping')
-        destination_twist = Twist()
-        destination_twist.linear.x = 0.0
-        destination_twist.linear.y = 0.0
-        destination_twist.linear.z = 0.0
-        destination_twist.angular.z = 0.0
-        self.publisher_twist.publish(destination_twist)
+        self.destination_twist.linear.x = 0.0
+        self.destination_twist.linear.y = 0.0
+        self.destination_twist.linear.z = 0.0
+        self.destination_twist.angular.z = 0.0
+        self.publisher_twist.publish(self.destination_twist)
 

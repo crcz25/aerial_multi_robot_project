@@ -60,6 +60,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         self.middle = True
         self.left = False
         self.right = False
+        self.destination_twist = Twist()
         
         self.colors_ranges = {
             # 'white_background' : [(0, 0, 0), (180, 255, 160)],
