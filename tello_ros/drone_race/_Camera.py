@@ -89,32 +89,12 @@ class Mixin:
             ratio = w / h
             # Draw the bounding box
             # If the ratio is a square and the area is between 2% and 60% of the image
-            if 0.75 < ratio < 1.5 and 0.02 < area < 0.6:
+            if 0.65 < ratio < 1.5 and 0.02 < area < 0.55:
                 # Calculate the center of the gate
                 cx = x + w / 2
                 cy = y + h / 2
-                # If there is any stop sign in the image
-                if self.stop_signs:
-                    x_stop, y_stop, w_stop, h_stop, cx_stop, cy_stop, area_stop = self.stop_signs[0]
-                    # Calculate the intersection over union between the gate and the stop sign
-                    boxAArea = w * h
-                    boxBArea = w_stop * h_stop
-                    boxA = np.array([x, y, x + w, y + h])
-                    boxB = np.array([x_stop, y_stop, x_stop + w_stop, y_stop + h_stop])
-                    xA = max(boxA[0], boxB[0])
-                    yA = max(boxA[1], boxB[1])
-                    xB = min(boxA[2], boxB[2])
-                    yB = min(boxA[3], boxB[3])
-                    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-                    iou = interArea / float(boxAArea + boxBArea - interArea)
-                    # If the intersection over union is greater than 0.5 discard the gate
-                    if iou > 0.5:
-                        continue
-                    # Save the gate
-                    self.gates.append((x, y, w, h, int(cx), int(cy), np.round(area, 2)))
-                else:
-                    # Save the gate
-                    self.gates.append((x, y, w, h, int(cx), int(cy), np.round(area, 2)))
+                # Save the gate
+                self.gates.append((x, y, w, h, int(cx), int(cy), np.round(area, 2)))
 
         # Sort the gates based on the area of the bounding box
         self.gates = sorted(self.gates, key=lambda x: x[6], reverse=True)
