@@ -336,17 +336,17 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                 if self.goal_yaw is None:
                     # Calculate the goal yaw based on the direction to rotate +30 or -30 degrees
                     if self.middle:
-                        self.goal_yaw = yaw - np.deg2rad(80/2)
+                        self.goal_yaw = yaw - np.deg2rad(90/2)
                         self.direction = -1
                         self.left = True
                         self.middle = False
                     elif self.right:
-                        self.goal_yaw = yaw - np.deg2rad(80)
+                        self.goal_yaw = yaw - np.deg2rad(90)
                         self.left = True
                         self.right = False
                         self.direction = -1
                     elif self.left:
-                        self.goal_yaw = yaw + np.deg2rad(80)
+                        self.goal_yaw = yaw + np.deg2rad(90)
                         self.right = True
                         self.left = False
                         self.direction = 1
