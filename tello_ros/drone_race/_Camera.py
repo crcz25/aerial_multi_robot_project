@@ -89,7 +89,7 @@ class Mixin:
             ratio = w / h
             # Draw the bounding box
             # If the ratio is a square and the area is between 2% and 60% of the image
-            if 0.65 < ratio < 1.5 and 0.02 < area < 0.55:
+            if 0.75 < ratio < 1.4 and 0.010 < area < 0.55:
                 # Calculate the center of the gate
                 cx = x + w / 2
                 cy = y + h / 2
@@ -105,10 +105,10 @@ class Mixin:
             self.curr_gate = self.gates[0]
             self.gate_found = True
             self.searching = False
-        # else:
-            # self.curr_gate = None
-            # self.gate_found = False
-            # self.searching = True
+        else:
+            self.curr_gate = None
+            self.gate_found = False
+            self.searching = True
 
         if self.curr_gate is not None:
             x, y, w, h, cx, cy, area = self.curr_gate

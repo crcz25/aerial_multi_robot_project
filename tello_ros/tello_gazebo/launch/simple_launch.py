@@ -11,7 +11,8 @@ from launch.actions import ExecuteProcess
 def generate_launch_description():
     ns = 'drone1'
     # world_path = os.path.join(get_package_share_directory('tello_gazebo'), 'worlds', 'simple.world')
-    world_path = '/media/crcz/AR_MRS_Worlds03/08.world'
+    world_path = '/home/crcz/Documents/repos/08.world'
+#     world_path = '/home/crcz/Documents/repos/aerial_multi_robot_project/complex.world'
     urdf_path = os.path.join(get_package_share_directory('tello_description'), 'urdf', 'tello_1.urdf')
 
     return LaunchDescription([

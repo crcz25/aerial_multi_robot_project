@@ -40,6 +40,7 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         self.detector = cv2.CascadeClassifier('haarcascade_stop.xml')
         self.stop_signs = []
         self.gates = []
+        self.time_to_pass = False
         self.detect = True
         self.centered = False
         self.close_enough = False
@@ -89,9 +90,9 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             self.odom_sub = self.create_subscription(Odometry, '/drone1/odom', self.odom_callback,
                                                      qos_profile=qos_policy)
             # Set the speed
-            self.speedx = 0.09
-            self.speedy = 0.09
-            self.speedz = 0.09
+            self.speedx = 0.15
+            self.speedy = 0.15
+            self.speedz = 0.15
         else:
             # Flight Control Real World
             self.publisher_twist = self.create_publisher(Twist, '/control', 1)
@@ -197,8 +198,8 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                 self.move_z(steps)
         else:
             print("Centered in (x,y)")
-            self.centered = True
             self.stop()
+            self.centered = True
         return
 
     def approach_object(self, area, threshold=0.15):
@@ -206,11 +207,12 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         # Calculate the error between the area of the gate and the threshold
         error = np.round(np.abs(0.40 - area), 2)
         print(f"Error: {error}")
-        # Calculate the steps to move
+        # Calculate the steps to move in x and y
         steps = error * self.speedx
+        print(f"Steps: {steps}")
         # Check if the drone is close enough to the gate
         # if error > threshold:
-        if area < threshold:
+        if error > 0.1:
             self.move_x(steps)
             self.close_enough = False
             self.centered = False
@@ -218,8 +220,10 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         else:
             self.stop()
             self.close_enough = True
-            self.goal_position = [self.current_position[0] + 1.5, self.current_position[1]]
+            self.goal_position = [self.current_position[0] + 2.5, self.current_position[1]]
             self.moving = False
+            self.time_to_pass = True
+            self.detect = False
         return
 
     def stop_drone(self, area, threshold=0.1):
@@ -251,27 +255,39 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
         print(f"Goal position: {self.goal_position}, Current position: {self.current_position}")
         # Calculate the distance to the goal position
         distance = np.linalg.norm(np.array(self.goal_position) - np.array(self.current_position))
-        print(f"Distance: {distance}")
+        # Calculate the error between the distance and the threshold
+        error = np.abs(threshold - distance)
         # Calculate the linear velocity
         # increase or reduce the linear velocity depending on the distance
+        # linear_velocity = self.speedx * error
         linear_velocity = self.speedx * distance if distance > threshold else self.speedx
+
         # linear_velocity = self.speedx
-        # print(f"Linear velocity: {linear_velocity}")
+        print(f"Distance: {distance}")
+        print(f'Error: {error}')
+        print(f"Linear velocity: {linear_velocity}")
 
         # Move the drone
-        if distance > threshold:
+        # if distance > threshold:
+        if error > 0.2:
             print("Moving forward")
             self.move_x(linear_velocity)
             self.moving = True
         else:
             print("GATE PASSED")
             self.stop()
+            self.moving = False
+            self.time_to_pass = False
             self.centered = False
             self.close_enough = False
-            self.gate_found = False
-            self.curr_gate = None
-            self.moving = False
-            self.searching = True
+            # self.gate_found = False
+            # self.curr_gate = None
+            self.middle = True
+            self.left = False
+            self.right = False
+            self.direction = 0
+            self.goal_yaw = None
+            self.detect = True
             self.goal_position = []
         return
 
@@ -298,11 +314,16 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
             # Process the image
             self.track_processing()
             # Check if there is a gate
-            if self.gate_found:
+            if self.gate_found and self.detect:
                 print("Gate Detected")
                 print(f'centered: {self.centered}, close enough: {self.close_enough}')
-                # self.direction = 0
-                # self.goal_yaw = None
+                self.direction = 0
+                self.goal_yaw = None
+                self.rotate(0)
+                # self.goal_position = []
+                # self.middle = True
+                # self.left = False
+                # self.right = False
                 _, _, _, _, cx, cy, area_gate =  self.curr_gate
                 if not self.centered:
                     print("Centering the gate")
@@ -310,21 +331,26 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                 elif not self.close_enough:
                     print("Approaching the gate")
                     self.approach_object(area_gate, threshold=0.3)
-                else:
-                    print("Stopping the drone, it is close enough and centered, time to pass the gate")
-                    self.pass_gate()
+            # Check if it is time to pass the gate
+            elif self.time_to_pass:
+                print("Stopping the drone, it is close enough and centered, time to pass the gate")
+                self.pass_gate()
             elif self.stop_sign_found:
                 print("Stop sign detected")
                 # self.direction = 0
                 # self.goal_yaw = None
+                # self.goal_position = []
+                # self.middle = True
+                # self.left = False
+                # self.right = False
                 _, _, _, _, cx, cy, area_stop = self.curr_stop
                 if not self.centered:
                     print("Centering the stop sign")
                     self.center_object(cx, cy)
+                    #self.approach_object(area_stop)
                 elif not self.close_enough:
                     print("Approaching the stop sign")
                     self.stop_drone(area_stop, threshold=0.35)
-                    #self.approach_object(area_stop)
                 else:
                     print("Stopping the drone, it is close enough and centered")
                     self.stop_drone(area_stop)
@@ -336,17 +362,17 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                 if self.goal_yaw is None:
                     # Calculate the goal yaw based on the direction to rotate +30 or -30 degrees
                     if self.middle:
-                        self.goal_yaw = yaw - np.deg2rad(90/2)
+                        self.goal_yaw = yaw - np.deg2rad(120/2)
                         self.direction = -1
                         self.left = True
                         self.middle = False
                     elif self.right:
-                        self.goal_yaw = yaw - np.deg2rad(90)
+                        self.goal_yaw = yaw - np.deg2rad(120)
                         self.left = True
                         self.right = False
                         self.direction = -1
                     elif self.left:
-                        self.goal_yaw = yaw + np.deg2rad(90)
+                        self.goal_yaw = yaw + np.deg2rad(120)
                         self.right = True
                         self.left = False
                         self.direction = 1
@@ -356,36 +382,28 @@ class Drone(Node, _Camera.Mixin, _Flight.Mixin, _Utils.Mixin):
                         self.goal_yaw = self.goal_yaw - (2 * np.pi)
                     elif self.goal_yaw < -np.pi:
                         self.goal_yaw = self.goal_yaw + (2 * np.pi)
-                    # angle = self.goal_yaw
-                    # angle_mod = angle % (2 * np.pi)
-                    # angle_shifted = (angle_mod - np.pi) % (2 * np.pi)
-                    # if angle_shifted > np.pi:
-                    #     angle_shifted -= 2*np.pi
-                    # self.goal_yaw = angle_shifted
 
                 # Calculate the error between the current yaw and the goal yaw
                 error = np.round(np.abs(self.goal_yaw - yaw), 2)
                 # Calculate the steps to move
-                # steps = (error * self.speedy * self.direction)
-                steps = 0.08 * self.direction
+                # steps = (error/np.pi) * self.direction
+                steps = 0.15 * self.direction
 
                 print(f"DIRECTION: {self.direction}, MIDDLE: {self.middle}, RIGHT: {self.right}, LEFT: {self.left}")
-                # print(f'Degrees: {np.rad2deg(self.goal_yaw)}')
-                # print(f"Current yaw: {np.rad2deg(yaw)}, {yaw}")
-                # print(f"Goal yaw: {np.rad2deg(self.goal_yaw)}, {self.goal_yaw}")
+                print(f"Current yaw: {np.rad2deg(yaw)}, {yaw}")
+                print(f"Goal yaw: {np.rad2deg(self.goal_yaw)}, {self.goal_yaw}")
                 print(f"Error: {error}")
 
                 # Check if the drone is close enough to the goal yaw
-                if error > 0.1:
-                    print(f"Rotating {steps} steps")
+                if error > 0.15:
+                    # print(f"Rotating {steps} steps")
                     self.rotate(steps)
                     self.moving = True
                 else:
-                    print("Stopping the drone")
+                    # print("Stopping the drone")
+                    self.stop()
                     self.moving = False
                     self.goal_yaw = None
-                    self.stop()
-
             else:
                 print("No gate or stop sign detected, setting searching to True")
                 self.stop()
