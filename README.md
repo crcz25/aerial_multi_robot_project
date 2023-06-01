@@ -37,6 +37,12 @@
 You will see a single drone in a blank world.
 You can control the drone using the joystick.
 
+##### Launch a random world simulation
+    *After following the previous steps*
+    ros2 launch tello_gazebo random_track_launch.py
+
+This will generate a world with randomly placed gates
+
 If you run into the **No namespace found** error re-set `GAZEBO_MODEL_PATH`:
 
     export GAZEBO_MODEL_PATH=${PWD}/install/tello_gazebo/share/tello_gazebo/models
